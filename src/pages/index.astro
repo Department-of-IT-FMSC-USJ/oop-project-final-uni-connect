@@ -1,0 +1,34 @@
+---
+import Layout from '../layouts/Layout.astro';
+import RoleSelectModal from '../components/RoleSelectModal.svelte';
+---
+
+<Layout title="Unified Login" headerType="full">
+	<div class="landing-container">
+		<RoleSelectModal client:load />
+	</div>
+</Layout>
+
+<style>
+	.landing-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		height: 100%;
+		/* New background image from user */
+		background-image: url('/landing-bg.jpg');
+		background-size: cover;
+		background-position: center;
+		background-blend-mode: overlay;
+		background-color: rgba(255, 255, 255, 0.4); /* Light overlay */
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+	}
+	
+	/* Apply to the main content wrapper inherited from Layout */
+	:global(.main-content) {
+		padding: 2rem;
+	}
+</style>
