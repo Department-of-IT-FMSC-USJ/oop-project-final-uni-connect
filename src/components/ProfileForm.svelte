@@ -233,6 +233,13 @@
                 >
                     {isLoading ? "Saving..." : "Save Changes"}
                 </button>
+                <button
+                    type="button"
+                    class="btn btn-outline"
+                    on:click={() => (isEditing = false)}
+                >
+                    Cancel
+                </button>
             </div>
         {/if}
     </form>
@@ -331,6 +338,7 @@
     .form-actions {
         display: flex;
         justify-content: flex-end;
+        gap: 1rem;
     }
 
     .mt-2 {
