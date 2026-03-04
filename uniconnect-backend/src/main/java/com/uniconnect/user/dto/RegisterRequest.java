@@ -20,6 +20,10 @@ public class RegisterRequest {
     @JsonProperty("password")
     private String password;
 
+    @NotBlank
+    @JsonProperty("confirmPassword")
+    private String confirmPassword;
+
     @JsonProperty("role")
     private Role role;
 
@@ -68,6 +72,10 @@ public class RegisterRequest {
         return password;
     }
 
+    public String getConfirmPassword() {
+        return confirmPassword;
+    }
+
     public Role getRole() {
         return role;
     }
@@ -107,6 +115,10 @@ public class RegisterRequest {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public void setConfirmPassword(String confirmPassword) {
+        this.confirmPassword = confirmPassword;
     }
 
     public void setRole(Role role) {
