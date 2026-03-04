@@ -67,7 +67,7 @@
         </div>
     {/if}
 
-    <div class="auth-footer mt-4">
+    <div class="auth-footer mt-8">
         <p>Remember your password? <a href="/login/student">Sign In</a></p>
     </div>
 </div>
@@ -93,6 +93,22 @@
 
     .w-100 {
         width: 100%;
+    }
+
+    .mt-2 {
+        margin-top: 1.5rem;
+    }
+
+    .mt-3 {
+        margin-top: 2rem;
+    }
+
+    .mt-4 {
+        margin-top: 2.5rem;
+    }
+
+    .mt-8 {
+        margin-top: 4rem;
     }
 
     .auth-footer {

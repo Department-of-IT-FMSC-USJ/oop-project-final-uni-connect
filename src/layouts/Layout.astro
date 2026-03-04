@@ -1,5 +1,7 @@
 ---
 import '../styles/global.css';
+import LogoutButton from '../components/LogoutButton.svelte';
+import LoginButton from '../components/LoginButton.svelte';
 
 interface Props {
 	title: string;
@@ -41,13 +43,14 @@ const { title, headerType = 'full', subtitle, registerUrl = "#", loginUrl = "#" 
 				{headerType === 'full' && (
 					<>
 						<a href="/" class="btn btn-outline">Home</a>
-						<a href="/login/student" class="btn btn-primary">Login</a>
+						<LoginButton client:load />
 					</>
 				)}
 				{headerType === 'auth' && (
 					<>
 						<a href="/" class="btn btn-glass">Home</a>
 						<a href={registerUrl} class="btn btn-glass">Register</a>
+						<LogoutButton client:load />
 					</>
 				)}
 				{headerType === 'simple' && (
