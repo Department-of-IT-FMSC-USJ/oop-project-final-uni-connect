@@ -1,0 +1,18 @@
+{
+    "name": "uniconnect-frontend",
+    "type": "module",
+    "version": "0.0.1",
+    "scripts": {
+        "frontend": "astro dev",
+        "backend": "cd ../backend && mvn spring-boot:run \"-Dspring-boot.run.arguments=--server.port=8081\"",
+        "dev-all": "concurrently \"npm run frontend\" \"npm run backend\""
+    },
+    "dependencies": {
+        "@astrojs/svelte": "^5.0.0",
+        "astro": "^4.0.0",
+        "svelte": "^4.0.0"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
+    }
+}

@@ -1,0 +1,33 @@
+# Node
+node_modules/
+dist/
+build/
+
+# Astro
+.astro/
+
+# Spring Boot
+target/
+*.jar
+*.war
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db

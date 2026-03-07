@@ -1,0 +1,41 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ProfileForm from '../components/ProfileForm.svelte';
+---
+
+<Layout title="My Profile" headerType="auth">
+	<div class="profile-container">
+		<h1 class="page-title">Profile Management</h1>
+		<p class="page-subtitle">Update your personal, academic, or professional profile.</p>
+		
+		<ProfileForm client:load />
+	</div>
+</Layout>
+
+<style>
+	.profile-container {
+		width: 100%;
+		max-width: 800px;
+		margin: 0 auto;
+		padding: 2rem 0;
+		animation: fadeUp 0.5s ease;
+	}
+
+	.page-title {
+		font-size: 2.5rem;
+		font-weight: 700;
+		margin-bottom: 0.5rem;
+        color: var(--text-main);
+	}
+
+	.page-subtitle {
+		color: var(--text-muted);
+		margin-bottom: 2.5rem;
+		font-size: 1.1rem;
+	}
+
+	@keyframes fadeUp {
+		from { opacity: 0; transform: translateY(20px); }
+		to { opacity: 1; transform: translateY(0); }
+	}
+</style>

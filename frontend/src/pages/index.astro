@@ -1,0 +1,215 @@
+---
+import Layout from '../layouts/Layout.astro';
+import LoginModalWrapper from '../components/LoginModalWrapper.svelte';
+import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte';
+---
+
+<Layout title="Unified Login" headerType="full">
+	<div class="landing-container">
+		<div class="welcome-section">
+			<div class="welcome-content">
+				<h1 class="welcome-title">Empowering Students<br />Through Dual Mentorship</h1>
+				<p class="welcome-subtitle">A unified ecosystem connecting Undergraduates, Academic Staff, Industry Alumni, and Department Leaders.</p>
+				<div class="cta-group">
+					<button id="hero-get-started" type="button" class="cta-btn cta-primary">Get Started</button>
+					<a href="#mentorship-model" class="cta-btn cta-secondary">Explore Mentorship Model</a>
+				</div>
+			</div>
+			<div class="welcome-graphic" id="mentorship-model">
+				<InterconnectionGraphic />
+			</div>
+		</div>
+		<!-- Modal wrapper that shows/hides based on store -->
+		<LoginModalWrapper client:load />
+	</div>
+</Layout>
+
+<script>
+	const getStartedBtn = document.getElementById('hero-get-started');
+	getStartedBtn?.addEventListener('click', () => {
+		if (typeof window !== 'undefined' && window.openLoginModal) {
+			window.openLoginModal();
+		}
+	});
+</script>
+
+<style>
+	.landing-container {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 100%;
+		min-height: calc(100vh - 98px);
+		padding: 2rem;
+		background-image: url('/landing-bg.jpg');
+		background-size: cover;
+		background-position: center;
+		border-radius: 20px;
+		overflow: hidden;
+		position: relative;
+	}
+
+	.landing-container::after {
+		content: '';
+		position: absolute;
+		inset: 0;
+		background: linear-gradient(90deg, rgba(245, 248, 254, 0.92) 0%, rgba(245, 248, 254, 0.86) 40%, rgba(245, 248, 254, 0.3) 100%);
+	}
+
+	.welcome-section {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 4rem;
+		max-width: 1300px;
+		width: 100%;
+		position: relative;
+		z-index: 1;
+		animation: fadeUp 0.6s ease;
+	}
+
+	.welcome-content {
+		flex: 1;
+		min-width: 320px;
+		max-width: 640px;
+	}
+
+	.welcome-graphic {
+		flex: 1;
+		min-width: 360px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.welcome-title {
+		font-size: 4rem;
+		font-weight: 800;
+		color: #111827;
+		margin-bottom: 1.25rem;
+		line-height: 1.2;
+		letter-spacing: -0.6px;
+	}
+
+	.welcome-subtitle {
+		font-size: 1.15rem;
+		color: #1f2937;
+		margin-bottom: 1.75rem;
+		line-height: 1.6;
+		font-weight: 450;
+		letter-spacing: 0.3px;
+		max-width: 760px;
+	}
+
+	.cta-group {
+		display: flex;
+		gap: 1rem;
+		flex-wrap: wrap;
+	}
+
+	.cta-btn {
+		height: 56px;
+		padding: 0 2rem;
+		border-radius: 12px;
+		font-size: 1.1rem;
+		font-weight: 600;
+		line-height: 1;
+		text-decoration: none;
+		border: 1px solid transparent;
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		transition: all 0.25s ease;
+		cursor: pointer;
+	}
+
+	.cta-primary {
+		background: linear-gradient(180deg, #326ad4 0%, #1e53b8 100%);
+		color: #ffffff;
+		box-shadow: 0 10px 24px rgba(30, 83, 184, 0.25);
+	}
+
+	.cta-primary:hover {
+		transform: translateY(-1px);
+		filter: brightness(1.02);
+	}
+
+	.cta-secondary {
+		background: #f4f6fb;
+		color: #1f2937;
+		border-color: #cfd7e6;
+	}
+
+	.cta-secondary:hover {
+		background: #eceff7;
+	}
+
+	:global(.interconnection-svg) {
+		max-width: 560px;
+		width: 100%;
+	}
+
+	@keyframes fadeUp {
+		from {
+			opacity: 0;
+			transform: translateY(20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+	
+	/* Apply to the main content wrapper inherited from Layout */
+	:global(.main-content) {
+		padding: 1.25rem;
+	}
+
+	/* Responsive design */
+	@media (max-width: 1200px) {
+		.welcome-title {
+			font-size: 3.3rem;
+		}
+
+		.welcome-subtitle {
+			font-size: 1.05rem;
+		}
+
+		.cta-btn {
+			font-size: 1rem;
+		}
+	}
+
+	@media (max-width: 900px) {
+		.welcome-section {
+			flex-direction: column;
+			gap: 2.25rem;
+			text-align: center;
+		}
+
+		.welcome-title {
+			font-size: 2.5rem;
+		}
+
+		.welcome-subtitle {
+			font-size: 1.1rem;
+			margin-inline: auto;
+		}
+
+		.cta-group {
+			justify-content: center;
+		}
+
+		.welcome-graphic {
+			width: 100%;
+			max-width: 500px;
+			min-width: 0;
+		}
+
+		.cta-btn {
+			height: 48px;
+			padding: 0 1.2rem;
+			font-size: 1rem;
+		}
+	}
+</style>

@@ -1,0 +1,69 @@
+---
+import '../styles/global.css';
+import LogoutButton from '../components/LogoutButton.svelte';
+import LoginButton from '../components/LoginButton.svelte';
+
+interface Props {
+	title: string;
+	headerType?: 'full' | 'simple' | 'auth';
+	subtitle?: string;
+	registerUrl?: string;
+	loginUrl?: string;
+}
+
+const { title, headerType = 'full', subtitle, registerUrl = "#", loginUrl = "#" } = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="description" content="UniConnect - University Connection Platform" />
+		<meta name="viewport" content="width=device-width" />
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+		<title>{title} | UniConnect</title>
+	</head>
+	<body>
+		<div class="bg-shape shape-1"></div>
+		<div class="bg-shape shape-2"></div>
+		
+		<header class="app-header">
+			<div class="logo-section">
+				<div class="logo-icon">
+					<img src="/logo.jpg" alt="UniConnect Logo" />
+				</div>
+				<div>
+					<div class="logo-text">UniConnect</div>
+					{subtitle && <div class="logo-subtext">{subtitle}</div>}
+				</div>
+			</div>
+
+			<nav class="nav-links">
+				{headerType === 'full' && (
+					<>
+						<a href="/" class="btn btn-outline">Home</a>
+						<LoginButton client:load />
+					</>
+				)}
+				{headerType === 'auth' && (
+					<>
+						<a href="/" class="btn btn-glass">Home</a>
+						<a href={registerUrl} class="btn btn-glass">Register</a>
+						<LogoutButton client:load />
+					</>
+				)}
+				{headerType === 'simple' && (
+					<>
+						<a href="/" class="btn btn-outline">Home</a>
+						<a href={loginUrl} class="btn btn-primary">Login</a>
+					</>
+				)}
+			</nav>
+		</header>
+
+		<main class="main-content">
+			<slot />
+		</main>
+	</body>
+</html>
