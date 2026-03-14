@@ -19,7 +19,8 @@ public class User implements UserDetails {
     }
 
     public User(Long id, String fullName, String email, String password, Role role, String phone, String department,
-            String profilePicture, String registrationNumber, String cpmNumber, String yearOfStudy) {
+            String profilePicture, String registrationNumber, String cpmNumber, String yearOfStudy,
+            Integer cumulativePoints, Boolean mentorEligible) {
         this.id = id;
         this.fullName = fullName;
         this.email = email;
@@ -31,6 +32,8 @@ public class User implements UserDetails {
         this.registrationNumber = registrationNumber;
         this.cpmNumber = cpmNumber;
         this.yearOfStudy = yearOfStudy;
+        this.cumulativePoints = cumulativePoints;
+        this.mentorEligible = mentorEligible;
     }
 
     public static UserBuilder builder() {
@@ -82,6 +85,14 @@ public class User implements UserDetails {
     @Column(name = "year_of_study")
     @JsonProperty("yearOfStudy")
     private String yearOfStudy;
+
+    @Column(name = "cumulative_points")
+    @JsonProperty("cumulativePoints")
+    private Integer cumulativePoints = 0;
+
+    @Column(name = "mentor_eligible")
+    @JsonProperty("mentorEligible")
+    private Boolean mentorEligible = false;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -202,6 +213,22 @@ public class User implements UserDetails {
         this.yearOfStudy = yearOfStudy;
     }
 
+    public Integer getCumulativePoints() {
+        return cumulativePoints;
+    }
+
+    public void setCumulativePoints(Integer cumulativePoints) {
+        this.cumulativePoints = cumulativePoints;
+    }
+
+    public Boolean getMentorEligible() {
+        return mentorEligible;
+    }
+
+    public void setMentorEligible(Boolean mentorEligible) {
+        this.mentorEligible = mentorEligible;
+    }
+
     public static class UserBuilder {
         private String fullName;
         private String email;
@@ -213,6 +240,8 @@ public class User implements UserDetails {
         private String registrationNumber;
         private String cpmNumber;
         private String yearOfStudy;
+        private Integer cumulativePoints;
+        private Boolean mentorEligible;
 
         UserBuilder() {
         }
@@ -267,9 +296,21 @@ public class User implements UserDetails {
             return this;
         }
 
+        public UserBuilder cumulativePoints(Integer cumulativePoints) {
+            this.cumulativePoints = cumulativePoints;
+            return this;
+        }
+
+        public UserBuilder mentorEligible(Boolean mentorEligible) {
+            this.mentorEligible = mentorEligible;
+            return this;
+        }
+
         public User build() {
+            Integer safePoints = cumulativePoints == null ? 0 : cumulativePoints;
+            Boolean safeEligible = mentorEligible != null && mentorEligible;
             return new User(null, fullName, email, password, role, phone, department, profilePicture,
-                    registrationNumber, cpmNumber, yearOfStudy);
+                    registrationNumber, cpmNumber, yearOfStudy, safePoints, safeEligible);
         }
     }
 }
