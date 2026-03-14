@@ -50,8 +50,12 @@
     let selectedProof = null;
     let pendingEdits = {};
     let repEdits = {};
+    let headEdits = {};
+    let headLocks = {};
+    let headDirty = {};
     let statusFilter = "ALL";
     let searchTerm = "";
+    let refreshTimer = null;
 
     onMount(() => {
         token = localStorage.getItem("token") || "";
@@ -80,6 +84,7 @@
                 return;
             }
             accessState = "allowed";
+            startAutoRefresh();
         } catch (error) {
             accessState = "denied";
             accessMessage = error.message || "Unable to validate access.";
@@ -100,6 +105,23 @@
     function resetMessages() {
         infoMessage = "";
         errorMessage = "";
+    }
+
+    function startAutoRefresh() {
+        if (refreshTimer) {
+            clearInterval(refreshTimer);
+        }
+        if (role === "UNDERGRADUATE") {
+            refreshTimer = setInterval(() => {
+                loadProfile();
+                loadMyPoints();
+                loadMyProofs();
+            }, 10000);
+        } else if (role === "DEPARTMENT_REP" || role === "DEPARTMENT_HEAD") {
+            refreshTimer = setInterval(() => {
+                loadRepProofs({ keepMessages: true });
+            }, 10000);
+        }
     }
 
     async function handleProofSubmit() {
@@ -180,6 +202,26 @@
                 };
                 return acc;
             }, {});
+            if (role === "DEPARTMENT_HEAD") {
+                const existingEdits = headEdits;
+                headEdits = repProofs.reduce((acc, proof) => {
+                    const current = existingEdits[proof.id];
+                    const baselinePoints = Number(proof.latestPoints ?? 0);
+                    if (current && Number(current.points) !== baselinePoints) {
+                        acc[proof.id] = current;
+                    } else {
+                        acc[proof.id] = {
+                            points: proof.latestPoints ?? 1,
+                            category: proof.pointCategory || "ACTIVITY"
+                        };
+                    }
+                    return acc;
+                }, {});
+                headLocks = repProofs.reduce((acc, proof) => {
+                    acc[proof.id] = String(proof.pointStatus || "").toUpperCase() !== "PENDING";
+                    return acc;
+                }, {});
+            }
         } catch (error) {
             errorMessage = error.message || "Failed to load submissions.";
         }
@@ -368,6 +410,99 @@
         pendingEdits = { ...pendingEdits, [recordId]: { ...edit, category, points: nextPoints } };
     }
 
+    function updateHeadPoints(proofId, delta) {
+        const edit = headEdits[proofId];
+        if (!edit) return;
+        const max = getCategoryMax(edit.category);
+        const next = Math.max(1, Math.min(max, Number(edit.points || 0) + delta));
+        headEdits = { ...headEdits, [proofId]: { ...edit, points: next } };
+        headDirty = { ...headDirty, [proofId]: true };
+    }
+
+    function isHeadDirty(proof) {
+        const edit = headEdits[proof.id];
+        if (!edit) return false;
+        return Number(edit.points) !== Number(proof.latestPoints ?? 0);
+    }
+
+    function isHeadLocked(proof) {
+        return Boolean(headLocks[proof.id]);
+    }
+
+    async function saveHeadAdjustment(proof) {
+        resetMessages();
+        if (!proof?.latestRecordId) {
+            errorMessage = "No point record found to save.";
+            return;
+        }
+        if (isHeadLocked(proof)) {
+            return;
+        }
+        const edit = headEdits[proof.id];
+        const desiredPoints = edit?.points ?? proof.latestPoints;
+        const desiredCategory = edit?.category ?? proof.pointCategory;
+        if (!isHeadDirty(proof)) {
+            infoMessage = "No changes to save.";
+            return;
+        }
+        loading = true;
+        try {
+            const response = await fetch(`${API_BASE}/api/points/${proof.latestRecordId}/pending-adjust`, {
+                method: "PUT",
+                headers: jsonHeaders(),
+                body: JSON.stringify({
+                    adjustedPoints: desiredPoints,
+                    category: desiredCategory,
+                    note: "Adjusted by department head"
+                })
+            });
+            if (!response.ok) {
+                const payload = await response.text();
+                throw new Error(`Save failed (${response.status}): ${payload || "Unknown error"}`);
+            }
+            let updated = null;
+            try {
+                updated = await response.json();
+            } catch (parseError) {
+                updated = null;
+            }
+            infoMessage = "Points updated.";
+            const nextProofId = updated?.proofId ?? proof.id;
+            const nextRecordId = updated?.id ?? proof.latestRecordId ?? null;
+            repProofs = repProofs.map((item) =>
+                String(item.id) === String(nextProofId) ||
+                (nextRecordId && String(item.latestRecordId) === String(nextRecordId))
+                    ? {
+                          ...item,
+                          latestPoints: updated?.points ?? desiredPoints ?? item.latestPoints,
+                          pointStatus: item.pointStatus,
+                          pointCategory: updated?.category ?? desiredCategory ?? item.pointCategory,
+                          latestRecordId: nextRecordId ?? item.latestRecordId
+                      }
+                    : item
+            );
+            if (selectedProof?.id === nextProofId) {
+                selectedProof = {
+                    ...selectedProof,
+                    latestPoints: updated?.points ?? desiredPoints ?? selectedProof.latestPoints,
+                    pointStatus: selectedProof.pointStatus,
+                    pointCategory: updated?.category ?? desiredCategory ?? selectedProof.pointCategory,
+                    latestRecordId: nextRecordId ?? selectedProof.latestRecordId
+                };
+            }
+            headEdits = {
+                ...headEdits,
+                [proof.id]: { points: updated?.points ?? desiredPoints, category: desiredCategory }
+            };
+            headDirty = { ...headDirty, [proof.id]: false };
+            await loadRepProofs({ keepMessages: true });
+        } catch (error) {
+            errorMessage = error.message || "Failed to save points.";
+        } finally {
+            loading = false;
+        }
+    }
+
     async function savePendingEdit(record) {
         resetMessages();
         loading = true;
@@ -460,12 +595,203 @@
         return statusMatch && (studentName.includes(query) || studentId.includes(query) || cpm.includes(query) || title.includes(query));
     });
 
+    $: groupedRepProofs = filteredRepProofs.reduce((acc, proof) => {
+        const key = proof.studentId ?? "unknown";
+        const studentName = proof.studentName || "Unknown Student";
+        if (!acc[key]) {
+            acc[key] = { studentId: key, studentName, submissions: [] };
+        }
+        acc[key].submissions.push(proof);
+        return acc;
+    }, {});
+
+    $: groupedRepProofsList = Object.values(groupedRepProofs);
+
     function statusClass(status) {
         const normalized = String(status || "").toLowerCase();
         if (normalized === "pending") return "status-pill status-pending";
         if (normalized === "approved") return "status-pill status-approved";
         if (normalized === "rejected") return "status-pill status-rejected";
         return "status-pill";
+    }
+
+    function formatCategory(category) {
+        const normalized = String(category || "").toUpperCase();
+        if (normalized === "AWARD") return "Achievement";
+        if (normalized === "ACTIVITY") return "Participation";
+        if (normalized === "DIRECT") return "Direct";
+        return "-";
+    }
+
+    function getConfirmState(proof) {
+        const status = String(proof?.pointStatus || "").toUpperCase();
+        if (loading) return { disabled: true, reason: "loading" };
+        if (!proof?.latestRecordId) return { disabled: true, reason: "missing record id" };
+        if (status !== "PENDING") return { disabled: true, reason: `status ${status || "empty"}` };
+        return { disabled: false, reason: "ready" };
+    }
+
+    function getSaveState(proof) {
+        const status = String(proof?.pointStatus || "").toUpperCase();
+        if (loading) return { disabled: true, reason: "loading" };
+        if (!proof?.latestRecordId) return { disabled: true, reason: "missing record id" };
+        if (status !== "PENDING") return { disabled: true, reason: `status ${status || "empty"}` };
+        if (isHeadLocked(proof)) return { disabled: true, reason: "locked" };
+        if (!headDirty[proof.id] && !isHeadDirty(proof)) return { disabled: true, reason: "no changes" };
+        return { disabled: false, reason: "ready" };
+    }
+
+    async function confirmHeadReview(proof, action = "APPROVE") {
+        resetMessages();
+        if (!proof?.latestRecordId) {
+            errorMessage = "No point record found to confirm.";
+            return;
+        }
+        if (isHeadLocked(proof)) {
+            return;
+        }
+        const previousStatus = proof.pointStatus;
+        const previousCategory = proof.pointCategory;
+        const previousPoints = proof.latestPoints;
+        const previousRecordId = proof.latestRecordId;
+        const optimisticId = proof.id;
+        headLocks = { ...headLocks, [proof.id]: true };
+        repProofs = repProofs.map((item) =>
+            String(item.id) === String(optimisticId)
+                ? {
+                      ...item,
+                      pointStatus: action === "REJECT" ? "REJECTED" : "APPROVED"
+                  }
+                : item
+        );
+        loading = true;
+        try {
+            const response = await fetch(`${API_BASE}/api/points/${proof.latestRecordId}/review`, {
+                method: "PUT",
+                headers: jsonHeaders(),
+                body: JSON.stringify({
+                    action,
+                    note: action === "REJECT" ? "Rejected by department head" : "Confirmed by department head"
+                })
+            });
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+            let updated = null;
+            try {
+                updated = await response.json();
+            } catch (parseError) {
+                updated = null;
+            }
+            infoMessage = action === "REJECT" ? "Submission rejected." : "Submission confirmed.";
+            const nextStatus = updated?.status?.name ?? updated?.status ?? "APPROVED";
+            const resolvedStatus = action === "REJECT" ? "REJECTED" : nextStatus;
+            const nextProofId = updated?.proofId ?? proof.id;
+            const nextRecordId = updated?.id ?? proof.latestRecordId ?? null;
+            repProofs = repProofs.map((item) =>
+                String(item.id) === String(nextProofId) ||
+                (nextRecordId && String(item.latestRecordId) === String(nextRecordId))
+                    ? {
+                          ...item,
+                          latestPoints: updated?.points ?? item.latestPoints,
+                          pointStatus: resolvedStatus,
+                          pointCategory: updated?.category ?? item.pointCategory,
+                          latestRecordId: nextRecordId ?? item.latestRecordId
+                      }
+                    : item
+            );
+            if (selectedProof?.id === nextProofId) {
+                selectedProof = {
+                    ...selectedProof,
+                    latestPoints: updated?.points ?? selectedProof.latestPoints,
+                    pointStatus: resolvedStatus,
+                    pointCategory: updated?.category ?? selectedProof.pointCategory,
+                    latestRecordId: nextRecordId ?? selectedProof.latestRecordId
+                };
+            }
+            headLocks = { ...headLocks, [proof.id]: true };
+        } catch (error) {
+            repProofs = repProofs.map((item) =>
+                String(item.id) === String(optimisticId)
+                    ? {
+                          ...item,
+                          pointStatus: previousStatus,
+                          pointCategory: previousCategory,
+                          latestPoints: previousPoints,
+                          latestRecordId: previousRecordId
+                      }
+                    : item
+            );
+            headLocks = { ...headLocks, [proof.id]: false };
+            errorMessage = error.message || "Failed to review submission.";
+        } finally {
+            loading = false;
+        }
+    }
+
+    function undoHeadLock(proof) {
+        undoHeadReview(proof);
+    }
+
+    async function undoHeadReview(proof) {
+        resetMessages();
+        if (!proof?.latestRecordId) {
+            errorMessage = "No point record found to undo.";
+            return;
+        }
+        loading = true;
+        try {
+            const response = await fetch(`${API_BASE}/api/points/${proof.latestRecordId}/undo`, {
+                method: "PUT",
+                headers: jsonHeaders()
+            });
+            if (!response.ok) {
+                throw new Error(await response.text());
+            }
+            let updated = null;
+            try {
+                updated = await response.json();
+            } catch (parseError) {
+                updated = null;
+            }
+            const nextStatus = updated?.status?.name ?? updated?.status ?? "PENDING";
+            const nextProofId = updated?.proofId ?? proof.id;
+            const nextRecordId = updated?.id ?? proof.latestRecordId ?? null;
+            repProofs = repProofs.map((item) =>
+                String(item.id) === String(nextProofId) ||
+                (nextRecordId && String(item.latestRecordId) === String(nextRecordId))
+                    ? {
+                          ...item,
+                          pointStatus: nextStatus,
+                          latestPoints: updated?.points ?? item.latestPoints,
+                          pointCategory: updated?.category ?? item.pointCategory,
+                          latestRecordId: nextRecordId ?? item.latestRecordId
+                      }
+                    : item
+            );
+            if (selectedProof?.id === nextProofId) {
+                selectedProof = {
+                    ...selectedProof,
+                    pointStatus: nextStatus,
+                    latestPoints: updated?.points ?? selectedProof.latestPoints,
+                    pointCategory: updated?.category ?? selectedProof.pointCategory,
+                    latestRecordId: nextRecordId ?? selectedProof.latestRecordId
+                };
+            }
+            headLocks = { ...headLocks, [proof.id]: false };
+            headEdits = {
+                ...headEdits,
+                [proof.id]: {
+                    points: updated?.points ?? proof.latestPoints ?? headEdits[proof.id]?.points,
+                    category: updated?.category ?? proof.pointCategory ?? headEdits[proof.id]?.category
+                }
+            };
+            infoMessage = "Review undone.";
+        } catch (error) {
+            errorMessage = error.message || "Failed to undo review.";
+        } finally {
+            loading = false;
+        }
     }
 </script>
 
@@ -696,61 +1022,63 @@
                     {/if}
                 </div>
             </section>
+        {/if}
 
-            {#if selectedProof}
-                <div class="modal-backdrop" on:click={() => (selectedProof = null)}></div>
-                <div class="modal-card">
-                    <div class="modal-header">
-                        <h3>Submission Details</h3>
-                        <button class="btn btn-outline btn-xs" type="button" on:click={() => (selectedProof = null)}>
-                            Close
-                        </button>
+        {#if (role === "DEPARTMENT_REP" || role === "DEPARTMENT_HEAD") && selectedProof}
+            <div class="modal-backdrop" on:click={() => (selectedProof = null)}></div>
+            <div class="modal-card">
+                <div class="modal-header">
+                    <h3>Submission Details</h3>
+                    <button class="btn btn-outline btn-xs" type="button" on:click={() => (selectedProof = null)}>
+                        Close
+                    </button>
+                </div>
+                <div class="details-grid">
+                    <div>
+                        <p class="detail-label">Student</p>
+                        <p class="detail-value">{selectedProof.studentName} (ID {selectedProof.studentId})</p>
                     </div>
-                    <div class="details-grid">
-                        <div>
-                            <p class="detail-label">Student</p>
-                            <p class="detail-value">{selectedProof.studentName} (ID {selectedProof.studentId})</p>
-                        </div>
-                        <div>
-                            <p class="detail-label">Submission ID</p>
-                            <p class="detail-value">{selectedProof.id}</p>
-                        </div>
-                        <div>
-                            <p class="detail-label">Title</p>
-                            <p class="detail-value">{selectedProof.title}</p>
-                        </div>
-                        <div>
-                            <p class="detail-label">Event Date</p>
-                            <p class="detail-value">{selectedProof.eventDate}</p>
-                        </div>
-                        <div>
-                            <p class="detail-label">Proof Type</p>
-                            <p class="detail-value">{selectedProof.proofType || "-"}</p>
-                        </div>
-                        <div>
-                            <p class="detail-label">Submitted At</p>
-                            <p class="detail-value">{selectedProof.createdAt || "-"}</p>
-                        </div>
-                        <div class="detail-full">
-                            <p class="detail-label">Description</p>
-                            <p class="detail-value">{selectedProof.description || "-"}</p>
-                        </div>
-                        <div class="detail-full">
-                            <p class="detail-label">Proof</p>
-                            {#if selectedProof.proofData}
-                                {#if isImageProof(selectedProof)}
-                                    <img class="proof-preview" src={selectedProof.proofData} alt="Proof upload" />
-                                {:else if isPdfProof(selectedProof)}
-                                    <iframe class="proof-preview" src={selectedProof.proofData} title="Proof document"></iframe>
-                                {:else}
-                                    <a class="btn btn-outline btn-xs" href={selectedProof.proofData} target="_blank" rel="noreferrer">Open Proof</a>
-                                {/if}
+                    <div>
+                        <p class="detail-label">Submission ID</p>
+                        <p class="detail-value">{selectedProof.id}</p>
+                    </div>
+                    <div>
+                        <p class="detail-label">Title</p>
+                        <p class="detail-value">{selectedProof.title}</p>
+                    </div>
+                    <div>
+                        <p class="detail-label">Event Date</p>
+                        <p class="detail-value">{selectedProof.eventDate}</p>
+                    </div>
+                    <div>
+                        <p class="detail-label">Proof Type</p>
+                        <p class="detail-value">{selectedProof.proofType || "-"}</p>
+                    </div>
+                    <div>
+                        <p class="detail-label">Submitted At</p>
+                        <p class="detail-value">{selectedProof.createdAt || "-"}</p>
+                    </div>
+                    <div class="detail-full">
+                        <p class="detail-label">Description</p>
+                        <p class="detail-value">{selectedProof.description || "-"}</p>
+                    </div>
+                    <div class="detail-full">
+                        <p class="detail-label">Proof</p>
+                        {#if selectedProof.proofData}
+                            {#if isImageProof(selectedProof)}
+                                <img class="proof-preview" src={selectedProof.proofData} alt="Proof upload" />
+                            {:else if isPdfProof(selectedProof)}
+                                <iframe class="proof-preview" src={selectedProof.proofData} title="Proof document"></iframe>
                             {:else}
-                                <span class="empty">No proof uploaded.</span>
+                                <a class="btn btn-outline btn-xs" href={selectedProof.proofData} target="_blank" rel="noreferrer">Open Proof</a>
                             {/if}
-                        </div>
+                        {:else}
+                            <span class="empty">No proof uploaded.</span>
+                        {/if}
                     </div>
+                </div>
 
+                {#if role === "DEPARTMENT_REP"}
                     <form class="form" on:submit|preventDefault={handleAllocatePoints}>
                         <div class="form-row">
                             <div class="form-group">
@@ -772,97 +1100,143 @@
                         </div>
                         <button class="btn btn-primary" type="submit" disabled={loading}>Allocate Points</button>
                     </form>
-                </div>
-            {/if}
+                {/if}
+            </div>
         {/if}
 
         {#if role === "DEPARTMENT_HEAD"}
             <section class="glass-panel section-card">
                 <div class="section-header">
-                    <h2>Head Validation</h2>
-                    <p>Approve, reject, or adjust pending point allocations.</p>
+                    <h2>Head Review</h2>
+                    <p>Review final point allocations and confirm submissions.</p>
                 </div>
                 <div class="table-actions">
-                    <button class="btn btn-outline" type="button" on:click={loadPending}>Load Pending Points</button>
+                    <button class="btn btn-outline" type="button" on:click={loadRepProofs}>Load Student Submissions</button>
+                    <select class="form-control compact" bind:value={statusFilter}>
+                        <option value="ALL">All Statuses</option>
+                        <option value="PENDING">Pending</option>
+                        <option value="APPROVED">Approved</option>
+                        <option value="REJECTED">Rejected</option>
+                    </select>
+                    <input class="form-control compact" placeholder="Search by CPM, student name or ID" bind:value={searchTerm} />
                 </div>
                 <div class="data-table">
-                    <h4>Pending Records</h4>
-                    {#if pendingPoints.length === 0}
-                        <p class="empty">No pending records loaded.</p>
+                    <h4>Submission List</h4>
+                    {#if repProofs.length === 0}
+                        <p class="empty">No submissions loaded.</p>
+                    {:else if filteredRepProofs.length === 0}
+                        <p class="empty">No submissions match the filters.</p>
                     {:else}
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Student</th>
-                                    <th>Category</th>
-                                    <th>Points</th>
-                                    <th>Save</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {#each pendingPoints as record}
-                                    <tr>
-                                        <td>{record.id}</td>
-                                        <td>{record.studentName}</td>
-                                        <td>
-                                            <select
-                                                class="form-control compact"
-                                                value={pendingEdits[record.id]?.category || record.category}
-                                                on:change={(e) => updatePendingCategory(record.id, e.target.value)}
-                                            >
-                                                <option value="ACTIVITY">Participation</option>
-                                                <option value="AWARD">Achievement</option>
-                                            </select>
-                                        </td>
-                                        <td>
-                                            <div class="points-control">
-                                                <button class="btn btn-outline btn-xs" type="button" on:click={() => updatePendingPoints(record.id, -1)}>
-                                                    -
-                                                </button>
-                                                <span class="points-value">{pendingEdits[record.id]?.points ?? record.points}</span>
-                                                <button class="btn btn-outline btn-xs" type="button" on:click={() => updatePendingPoints(record.id, 1)}>
-                                                    +
-                                                </button>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <button class="btn btn-primary btn-xs" type="button" on:click={() => savePendingEdit(record)} disabled={loading}>
-                                                Save
-                                            </button>
-                                        </td>
-                                    </tr>
-                                {/each}
-                            </tbody>
-                        </table>
+                        {#each groupedRepProofsList as group}
+                            <div class="group-block">
+                                <div class="group-header">
+                                    <span class="group-title">{group.studentName} (ID {group.studentId})</span>
+                                    <span class="group-count">{group.submissions.length} submission(s)</span>
+                                </div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>CPM</th>
+                                            <th>Point Type</th>
+                                            <th>Allocated Points</th>
+                                            <th>Status</th>
+                                            <th>Reviewed By</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {#each group.submissions as proof}
+                                            <tr>
+                                                <td>{proof.submissionCode ?? proof.id}</td>
+                                                <td>{proof.cpm || "-"}</td>
+                                                <td>{formatCategory(proof.pointCategory)}</td>
+                                                <td>
+                                                    <div class="points-control">
+                                                        <button
+                                                            class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            on:click={() => updateHeadPoints(proof.id, -1)}
+                                                        >
+                                                            -
+                                                        </button>
+                                                        <span class="points-value">
+                                                            {headEdits[proof.id]?.points ?? proof.latestPoints ?? "-"}
+                                                        </span>
+                                                        <button
+                                                            class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            on:click={() => updateHeadPoints(proof.id, 1)}
+                                                        >
+                                                            +
+                                                        </button>
+                                                    </div>
+                                                    <button
+                                                        class="btn btn-primary btn-xs"
+                                                        type="button"
+                                                        on:click={() => saveHeadAdjustment(proof)}
+                                                        disabled={getSaveState(proof).disabled}
+                                                        title={`Save: ${getSaveState(proof).reason}`}
+                                                    >
+                                                        Save
+                                                    </button>
+                                                </td>
+                                                <td>
+                                                    {#if proof.pointStatus}
+                                                        <span class={statusClass(proof.pointStatus)}>{proof.pointStatus}</span>
+                                                    {:else}
+                                                        <span class="empty">-</span>
+                                                    {/if}
+                                                </td>
+                                                <td>
+                                                    {#if proof.latestAllocatedByName}
+                                                        {proof.latestAllocatedByName}
+                                                    {:else}
+                                                        <span class="empty">-</span>
+                                                    {/if}
+                                                </td>
+                                                <td>
+                                                    <div class="action-group">
+                                                        <button
+                                                            class="btn btn-primary btn-xs"
+                                                            type="button"
+                                                            on:click={() => confirmHeadReview(proof, "APPROVE")}
+                                                            disabled={getConfirmState(proof).disabled || isHeadLocked(proof)}
+                                                            title="Confirm submission"
+                                                        >
+                                                            Confirm
+                                                        </button>
+                                                        <button
+                                                            class="btn btn-outline btn-xs btn-danger"
+                                                            type="button"
+                                                            on:click={() => confirmHeadReview(proof, "REJECT")}
+                                                            disabled={getConfirmState(proof).disabled || isHeadLocked(proof)}
+                                                            title="Reject submission"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                        <button
+                                                            class="btn btn-outline btn-xs"
+                                                            type="button"
+                                                            on:click={() => undoHeadLock(proof)}
+                                                            disabled={!isHeadLocked(proof)}
+                                                            title="Change status to pending"
+                                                        >
+                                                            Undo
+                                                        </button>
+                                                        <button class="btn btn-outline btn-xs" type="button" on:click={() => selectProof(proof)} title="View submission">
+                                                            View
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {/each}
                     {/if}
                 </div>
-
-                <form class="form" on:submit|preventDefault={handleReviewPoints}>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label class="form-label">Record ID</label>
-                            <input class="form-control" type="number" min="1" bind:value={reviewForm.recordId} required />
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Action</label>
-                            <select class="form-control" bind:value={reviewForm.action}>
-                                <option value="APPROVE">Approve</option>
-                                <option value="REJECT">Reject</option>
-                                <option value="ADJUST">Adjust</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Adjusted Points (only for Adjust)</label>
-                        <input class="form-control" type="number" min="1" bind:value={reviewForm.adjustedPoints} />
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Note</label>
-                        <input class="form-control" bind:value={reviewForm.note} />
-                    </div>
-                    <button class="btn btn-primary" type="submit" disabled={loading}>Submit Review</button>
-                </form>
 
                 <div class="section-divider"></div>
 
@@ -1030,6 +1404,33 @@
         margin-bottom: 0.75rem;
     }
 
+    .group-block {
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 14px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        background: rgba(255, 255, 255, 0.6);
+    }
+
+    .group-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+        color: var(--text-main);
+    }
+
+    .group-title {
+        font-size: 0.95rem;
+    }
+
+    .group-count {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
     .hint {
         display: block;
         margin-top: 0.35rem;
@@ -1138,6 +1539,22 @@
         background: rgba(239, 68, 68, 0.18);
         color: #991b1b;
         border-color: rgba(239, 68, 68, 0.4);
+    }
+
+    .btn-danger {
+        border-color: rgba(239, 68, 68, 0.6);
+        color: #ffffff;
+        background: rgba(239, 68, 68, 0.8);
+    }
+
+    .btn-danger:hover {
+        background: rgba(220, 38, 38, 0.9);
+    }
+
+    button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+        filter: grayscale(0.2);
     }
 
     .modal-backdrop {
