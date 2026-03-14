@@ -52,7 +52,7 @@
                 }
 
                 // Redirect exactly like screenshot demo
-                window.location.href = "/profile";
+                window.location.href = "/point-based-system";
             } else {
                 // Login failed
                 errorMessage = "Invalid email or password.";
