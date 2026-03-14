@@ -6,6 +6,8 @@ import com.app.modules.points.exception.DuplicateAllocationException;
 import com.app.modules.mentor.exception.InsufficientPointsException;
 import com.app.modules.feedback.exception.DuplicateFeedbackException;
 import com.app.modules.feedback.exception.SessionNotCompletedException;
+import com.app.modules.recommendation.exception.DuplicateRecommendationException;
+import com.app.modules.recommendation.exception.ProfileIncompleteException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -158,6 +160,32 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(
                 ApiResponseDTO.error(ex.getMessage()),
                 HttpStatus.BAD_REQUEST
+        );
+    }
+
+    /**
+     * Handle profile incomplete exceptions (recommendation module).
+     */
+    @ExceptionHandler(ProfileIncompleteException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleProfileIncompleteException(
+            ProfileIncompleteException ex) {
+
+        return new ResponseEntity<>(
+                ApiResponseDTO.error(ex.getMessage()),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    /**
+     * Handle duplicate recommendation exceptions (recommendation module).
+     */
+    @ExceptionHandler(DuplicateRecommendationException.class)
+    public ResponseEntity<ApiResponseDTO<Void>> handleDuplicateRecommendationException(
+            DuplicateRecommendationException ex) {
+
+        return new ResponseEntity<>(
+                ApiResponseDTO.error(ex.getMessage()),
+                HttpStatus.CONFLICT
         );
     }
 
