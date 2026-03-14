@@ -171,6 +171,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProfileIncompleteException.class)
     public ResponseEntity<ApiResponseDTO<Void>> handleProfileIncompleteException(
             ProfileIncompleteException ex) {
+
+        return new ResponseEntity<>(
+                ApiResponseDTO.error(ex.getMessage()),
+                HttpStatus.BAD_REQUEST
+        );
+    }
+
+    /**
      * Handle invalid date range exceptions (reports module).
      */
     @ExceptionHandler(InvalidDateRangeException.class)
@@ -193,6 +201,10 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(
                 ApiResponseDTO.error(ex.getMessage()),
                 HttpStatus.CONFLICT
+        );
+    }
+
+    /**
      * Handle report generation exceptions (reports module).
      */
     @ExceptionHandler(ReportGenerationException.class)
