@@ -1,0 +1,78 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PointBasedSystem from '../components/PointBasedSystem.svelte';
+---
+
+<Layout title="Point Based System" headerType="auth">
+	<div class="pbs-container">
+		<div class="pbs-hero glass-panel">
+			<div>
+				<h1 class="pbs-title">Point Based System</h1>
+				<p class="pbs-subtitle">
+					Submit proofs, allocate points, validate decisions, and unlock mentor access.
+				</p>
+			</div>
+		</div>
+
+		<PointBasedSystem client:load />
+	</div>
+</Layout>
+
+<style>
+	.pbs-container {
+		width: 100%;
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 2rem 0 3rem;
+		display: flex;
+		flex-direction: column;
+		gap: 2rem;
+		animation: fadeUp 0.5s ease;
+	}
+
+	.pbs-hero {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 2rem 2.5rem;
+		background: linear-gradient(135deg, rgba(30, 64, 175, 0.1), rgba(255, 255, 255, 0.9));
+		border: 1px solid rgba(59, 130, 246, 0.25);
+	}
+
+	.pbs-title {
+		font-size: 2.6rem;
+		font-weight: 700;
+		color: var(--text-main);
+	}
+
+	.pbs-subtitle {
+		margin-top: 0.5rem;
+		color: var(--text-muted);
+		font-size: 1.05rem;
+		max-width: 720px;
+		line-height: 1.6;
+	}
+
+	@keyframes fadeUp {
+		from {
+			opacity: 0;
+			transform: translateY(20px);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@media (max-width: 900px) {
+		.pbs-hero {
+			flex-direction: column;
+			align-items: flex-start;
+			gap: 1rem;
+		}
+
+		.pbs-title {
+			font-size: 2.1rem;
+		}
+	}
+</style>
