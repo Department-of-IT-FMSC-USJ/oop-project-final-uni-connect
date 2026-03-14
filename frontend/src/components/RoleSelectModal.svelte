@@ -1,13 +1,21 @@
 <script>
+  export let lockMentors = false;
+
   let selectedRole = "student";
 
   const handleContinue = () => {
     // Redirect to login page for the selected role
+    if (lockMentors && (selectedRole === "academic" || selectedRole === "alumni")) {
+      return;
+    }
     window.location.href = `/login/${selectedRole}`;
   };
 
   const handleRegister = () => {
     // Redirect to register page for the selected role
+    if (lockMentors && (selectedRole === "academic" || selectedRole === "alumni")) {
+      return;
+    }
     window.location.href = `/register/${selectedRole}`;
   };
 </script>
@@ -37,8 +45,8 @@
     <label class="form-label" for="role-select">Select your role</label>
     <select id="role-select" class="form-control" bind:value={selectedRole}>
       <option value="student">Student / Undergraduate</option>
-      <option value="academic">Academic Mentor</option>
-      <option value="alumni">Alumni / Industry Mentor</option>
+      <option value="academic" disabled={lockMentors}>Academic Mentor {lockMentors ? "(Locked)" : ""}</option>
+      <option value="alumni" disabled={lockMentors}>Alumni / Industry Mentor {lockMentors ? "(Locked)" : ""}</option>
       <option value="dept-rep">Department Representative</option>
       <option value="dept-head">Department Head</option>
     </select>

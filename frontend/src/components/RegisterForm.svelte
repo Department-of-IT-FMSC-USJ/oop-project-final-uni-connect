@@ -422,7 +422,7 @@
 
             <div class="form-group">
                 <label class="form-label" for="profilePicture"
-                    >Profile Picture</label
+                    >Profile Picture {#if role === "student"}(required){/if}</label
                 >
                 <input
                     class="form-control"
@@ -430,7 +430,7 @@
                     id="profilePicture"
                     accept="image/*"
                     on:change={handleFileChange}
-                    required
+                    required={role === "student"}
                 />
             </div>
 
