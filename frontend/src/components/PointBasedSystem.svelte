@@ -11,12 +11,15 @@
     let accessMessage = "";
     let role = "";
     let showAccessLoginModal = false;
+    let pauseAutoRefresh = false;
+    let proofFormEl;
 
     let proofForm = {
         title: "",
         description: "",
         cpm: "",
         eventDate: "",
+        category: "ACTIVITY",
         proofType: "",
         proofData: ""
     };
@@ -60,8 +63,7 @@
     onMount(() => {
         token = localStorage.getItem("token") || "";
         if (!token) {
-            accessState = "denied";
-            accessMessage = "Login required to access the Point Based System.";
+            window.location.href = "/profile";
             return;
         }
         loadProfile();
@@ -102,6 +104,12 @@
         };
     }
 
+    function isRepLocked(proof) {
+        if (!proof || !proof.pointStatus) return false;
+        const status = String(proof.pointStatus).toUpperCase();
+        return status === "APPROVED" || status === "REJECTED";
+    }
+
     function resetMessages() {
         infoMessage = "";
         errorMessage = "";
@@ -136,6 +144,7 @@
                     description: proofForm.description,
                     cpm: proofForm.cpm,
                     eventDate: proofForm.eventDate,
+                    pointCategory: proofForm.category,
                     proofType: proofForm.proofType,
                     proofData: proofForm.proofData
                 })
@@ -144,7 +153,8 @@
                 throw new Error(await response.text());
             }
             infoMessage = "Proof submitted successfully.";
-            proofForm = { title: "", description: "", cpm: "", eventDate: "", proofType: "", proofData: "" };
+            proofForm = { title: "", description: "", cpm: "", eventDate: "", category: "ACTIVITY", proofType: "", proofData: "" };
+            pauseAutoRefresh = false;
             await loadMyProofs();
         } catch (error) {
             errorMessage = error.message || "Failed to submit proof.";
@@ -333,6 +343,8 @@
     }
 
     function updateRepPoints(proofId, delta) {
+        const proof = repProofs.find((p) => p.id === proofId);
+        if (isRepLocked(proof)) return;
         const edit = repEdits[proofId];
         if (!edit) return;
         const max = getCategoryMax(edit.category);
@@ -341,6 +353,8 @@
     }
 
     function updateRepCategory(proofId, category) {
+        const proof = repProofs.find((p) => p.id === proofId);
+        if (isRepLocked(proof)) return;
         const edit = repEdits[proofId];
         if (!edit) return;
         const max = getCategoryMax(category);
@@ -349,6 +363,10 @@
     }
 
     async function saveRepEdit(proof) {
+        if (isRepLocked(proof)) {
+            errorMessage = "This point allocation is already finalized and cannot be edited.";
+            return;
+        }
         resetMessages();
         loading = true;
         try {
@@ -836,7 +854,7 @@
             </div>
             <div class="glass-panel overview-card">
                 <h3>Department</h3>
-                <p>{profile.department || "Not set"}</p>
+                <p>{profile.department || "Department of Information Technology"}</p>
                 <span class="pill">Access Granted</span>
             </div>
         {/if}
@@ -856,7 +874,13 @@
                     <h2>Undergraduate Proof Upload</h2>
                     <p>Submit proof for activities or achievements.</p>
                 </div>
-                <form class="form" on:submit|preventDefault={handleProofSubmit}>
+                <form
+                    class="form"
+                    bind:this={proofFormEl}
+                    on:focusin={updatePauseFromActive}
+                    on:focusout={() => setTimeout(updatePauseFromActive, 0)}
+                    on:submit|preventDefault={handleProofSubmit}
+                >
                     <div class="form-group">
                         <label class="form-label">Title</label>
                         <input class="form-control" bind:value={proofForm.title} required />
@@ -868,6 +892,29 @@
                     <div class="form-group">
                         <label class="form-label">CPM</label>
                         <input class="form-control" bind:value={proofForm.cpm} required />
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Point Category</label>
+                        <div class="radio-group">
+                            <label class="radio-option">
+                                <input
+                                    type="radio"
+                                    name="pointCategory"
+                                    value="ACTIVITY"
+                                    bind:group={proofForm.category}
+                                />
+                                Participation
+                            </label>
+                            <label class="radio-option">
+                                <input
+                                    type="radio"
+                                    name="pointCategory"
+                                    value="AWARD"
+                                    bind:group={proofForm.category}
+                                />
+                                Achievement
+                            </label>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Event Date</label>
@@ -906,7 +953,7 @@
                                         <td>{proof.submissionCode ?? proof.id}</td>
                                         <td>{proof.title}</td>
                                         <td>{proof.eventDate}</td>
-                                        <td>{proof.pointCategory ?? "-"}</td>
+                                        <td>{formatCategory(proof.pointCategory)}</td>
                                         <td>{proof.latestPoints ?? "-"}</td>
                                         <td>
                                             {#if proof.pointStatus}
@@ -982,6 +1029,7 @@
                                                 class="form-control compact"
                                                 value={repEdits[proof.id]?.category || proof.pointCategory || "ACTIVITY"}
                                                 on:change={(e) => updateRepCategory(proof.id, e.target.value)}
+                                                disabled={isRepLocked(proof)}
                                             >
                                                 <option value="ACTIVITY">Participation</option>
                                                 <option value="AWARD">Achievement</option>
@@ -989,11 +1037,21 @@
                                         </td>
                                         <td>
                                             <div class="points-control">
-                                                <button class="btn btn-outline btn-xs" type="button" on:click={() => updateRepPoints(proof.id, -1)}>
+                                                <button
+                                                    class="btn btn-outline btn-xs"
+                                                    type="button"
+                                                    on:click={() => updateRepPoints(proof.id, -1)}
+                                                    disabled={isRepLocked(proof)}
+                                                >
                                                     -
                                                 </button>
                                                 <span class="points-value">{repEdits[proof.id]?.points ?? proof.latestPoints ?? "-"}</span>
-                                                <button class="btn btn-outline btn-xs" type="button" on:click={() => updateRepPoints(proof.id, 1)}>
+                                                <button
+                                                    class="btn btn-outline btn-xs"
+                                                    type="button"
+                                                    on:click={() => updateRepPoints(proof.id, 1)}
+                                                    disabled={isRepLocked(proof)}
+                                                >
                                                     +
                                                 </button>
                                             </div>
@@ -1007,7 +1065,12 @@
                                         </td>
                                         <td>
                                             <div class="action-group">
-                                                <button class="btn btn-primary btn-xs" type="button" on:click={() => saveRepEdit(proof)} disabled={loading}>
+                                                <button
+                                                    class="btn btn-primary btn-xs"
+                                                    type="button"
+                                                    on:click={() => saveRepEdit(proof)}
+                                                    disabled={loading || isRepLocked(proof)}
+                                                >
                                                     Save
                                                 </button>
                                                 <button class="btn btn-outline btn-xs" type="button" on:click={() => selectProof(proof)}>
@@ -1381,6 +1444,20 @@
         display: flex;
         flex-direction: column;
         gap: 1rem;
+    }
+
+    .radio-group {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .radio-option {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+        color: var(--text-main);
     }
 
     .form-row {
