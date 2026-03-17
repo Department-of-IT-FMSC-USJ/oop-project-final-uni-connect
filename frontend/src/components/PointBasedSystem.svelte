@@ -115,19 +115,12 @@
         errorMessage = "";
     }
 
-    function updatePauseFromActive() {
-        pauseAutoRefresh = Boolean(proofFormEl && proofFormEl.contains(document.activeElement));
-    }
-
     function startAutoRefresh() {
         if (refreshTimer) {
             clearInterval(refreshTimer);
         }
         if (role === "UNDERGRADUATE") {
             refreshTimer = setInterval(() => {
-                if (pauseAutoRefresh) {
-                    return;
-                }
                 loadProfile();
                 loadMyPoints();
                 loadMyProofs();
@@ -1119,10 +1112,6 @@
                     <div>
                         <p class="detail-label">Event Date</p>
                         <p class="detail-value">{selectedProof.eventDate}</p>
-                    </div>
-                    <div>
-                        <p class="detail-label">Point Category</p>
-                        <p class="detail-value">{formatCategory(selectedProof.pointCategory)}</p>
                     </div>
                     <div>
                         <p class="detail-label">Proof Type</p>
