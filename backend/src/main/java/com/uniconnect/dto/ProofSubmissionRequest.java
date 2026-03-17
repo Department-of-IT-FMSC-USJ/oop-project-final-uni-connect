@@ -2,6 +2,10 @@ package com.uniconnect.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import com.uniconnect.model.PointCategory;
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 
 import java.time.LocalDate;
 
@@ -21,6 +25,9 @@ public class ProofSubmissionRequest {
     private String proofData;
 
     private String proofType;
+
+    @NotNull
+    private PointCategory category;
 
     public String getTitle() {
         return title;
@@ -68,5 +75,23 @@ public class ProofSubmissionRequest {
 
     public void setProofType(String proofType) {
         this.proofType = proofType;
+    }
+
+    public PointCategory getCategory() {
+        return category;
+    }
+
+    public void setCategory(PointCategory category) {
+        this.category = category;
+    }
+
+    @JsonSetter("pointCategory")
+    @JsonAlias({ "category", "pointCategory" })
+    public void setCategoryFromString(String category) {
+        if (category == null) {
+            this.category = null;
+            return;
+        }
+        this.category = PointCategory.valueOf(category.trim().toUpperCase());
     }
 }

@@ -47,6 +47,7 @@ public class ProofService {
                 LocalDateTime.now()
         );
         proof.setCpm(request.getCpm());
+        proof.setLatestCategory(request.getCategory());
         proof.setSubmissionCode(generateSubmissionCode(proof.getCreatedAt()));
 
         ProofSubmission saved = proofRepository.save(proof);
