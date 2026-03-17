@@ -9,6 +9,8 @@
     let phone = "";
     let password = "";
     let confirmPassword = "";
+    let showPassword = false;
+    let showConfirmPassword = false;
     let profilePicture = "";
     let registrationNumber = "";
     let cpmNumber = "";
@@ -17,6 +19,7 @@
     let errorMessage = "";
     let passwordMatchError = "";
     let emailError = "";
+    let mcEmailError = "";
     let cpmError = "";
     let mcError = "";
     let phoneError = "";
@@ -98,6 +101,25 @@
         }
     }
 
+    $: {
+        if (role === "student" && email && registrationNumber) {
+            const emailPattern = /^\d{6}@mgt\.sjp\.ac\.lk$/;
+            const mcPattern = /^\d{6}$/;
+            if (emailPattern.test(email) && mcPattern.test(registrationNumber)) {
+                const emailPrefix = email.split("@")[0];
+                if (emailPrefix !== registrationNumber) {
+                    mcEmailError = "MC number must match the email prefix before @";
+                } else {
+                    mcEmailError = "";
+                }
+            } else {
+                mcEmailError = "";
+            }
+        } else {
+            mcEmailError = "";
+        }
+    }
+
     const formatRole = (r) => {
         switch (r) {
             case "student":
@@ -162,6 +184,13 @@
             const mcPattern = /^\d{6}$/;
             if (!mcPattern.test(registrationNumber)) {
                 errorMessage = "MC number must be exactly 6 digits";
+                isLoading = false;
+                return;
+            }
+
+            const emailPrefix = email.split("@")[0];
+            if (emailPrefix !== registrationNumber) {
+                errorMessage = "MC number must match the email prefix before @";
                 isLoading = false;
                 return;
             }
@@ -317,7 +346,11 @@
                 />
                 {#if emailError}
                     <div class="email-error">
-                        ✗ {emailError}
+                        {emailError}
+                    </div>
+                {:else if mcEmailError}
+                    <div class="email-error">
+                        {mcEmailError}
                     </div>
                 {:else if role === "student" && email && email.match(/^\d{6}@mgt\.sjp\.ac\.lk$/)}
                     <div class="email-success">
@@ -342,7 +375,7 @@
                 />
                 {#if phoneError}
                     <div class="phone-error">
-                        ✗ {phoneError}
+                        {phoneError}
                     </div>
                 {:else if phone && !phoneError}
                     <div class="phone-success">
@@ -368,7 +401,7 @@
                         />
                         {#if mcError}
                             <div class="mc-error">
-                                ✗ {mcError}
+                                {mcError}
                             </div>
                         {:else if registrationNumber && !mcError}
                             <div class="mc-success">
@@ -391,7 +424,7 @@
                         />
                         {#if cpmError}
                             <div class="cpm-error">
-                                ✗ {cpmError}
+                                {cpmError}
                             </div>
                         {:else if cpmNumber && !cpmError}
                             <div class="cpm-success">
@@ -422,7 +455,7 @@
 
             <div class="form-group">
                 <label class="form-label" for="profilePicture"
-                    >Profile Picture</label
+                    >Profile Picture {#if role === "student"}(required){/if}</label
                 >
                 <input
                     class="form-control"
@@ -430,33 +463,95 @@
                     id="profilePicture"
                     accept="image/*"
                     on:change={handleFileChange}
-                    required
+                    required={role === "student"}
                 />
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="password">Password</label>
-                <input
-                    class="form-control"
-                    type="password"
-                    id="password"
-                    bind:value={password}
-                    required
-                />
+                <div class="password-field">
+                    {#if showPassword}
+                        <input
+                            class="form-control"
+                            type="text"
+                            id="password"
+                            bind:value={password}
+                            required
+                        />
+                    {:else}
+                        <input
+                            class="form-control"
+                            type="password"
+                            id="password"
+                            bind:value={password}
+                            required
+                        />
+                    {/if}
+                    <button
+                        type="button"
+                        class="toggle-visibility"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        on:click={() => (showPassword = !showPassword)}
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            width="18"
+                            height="18"
+                            aria-hidden="true"
+                            focusable="false"
+                        >
+                            <path
+                                fill="currentColor"
+                                d="M12 5C6.5 5 2.1 8.6 1 12c1.1 3.4 5.5 7 11 7s9.9-3.6 11-7c-1.1-3.4-5.5-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+                            />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <div class="form-group">
                 <label class="form-label" for="confirmPassword">Confirm Password</label>
-                <input
-                    class="form-control {passwordMatchError ? 'input-error' : ''}"
-                    type="password"
-                    id="confirmPassword"
-                    bind:value={confirmPassword}
-                    required
-                />
+                <div class="password-field">
+                    {#if showConfirmPassword}
+                        <input
+                            class="form-control {passwordMatchError ? 'input-error' : ''}"
+                            type="text"
+                            id="confirmPassword"
+                            bind:value={confirmPassword}
+                            required
+                        />
+                    {:else}
+                        <input
+                            class="form-control {passwordMatchError ? 'input-error' : ''}"
+                            type="password"
+                            id="confirmPassword"
+                            bind:value={confirmPassword}
+                            required
+                        />
+                    {/if}
+                    <button
+                        type="button"
+                        class="toggle-visibility"
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                        on:click={() => (showConfirmPassword = !showConfirmPassword)}
+                    >
+                        <svg
+                            viewBox="0 0 24 24"
+                            width="18"
+                            height="18"
+                            aria-hidden="true"
+                            focusable="false"
+                        >
+                            <path
+                                fill="currentColor"
+                                d="M12 5C6.5 5 2.1 8.6 1 12c1.1 3.4 5.5 7 11 7s9.9-3.6 11-7c-1.1-3.4-5.5-7-11-7zm0 11a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm0-6a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+                            />
+                        </svg>
+                    </button>
+                </div>
                 {#if passwordMatchError}
                     <div class="password-error">
-                        ✗ {passwordMatchError}
+                        {passwordMatchError}
                     </div>
                 {:else if confirmPassword && password === confirmPassword}
                     <div class="password-success">
@@ -524,6 +619,35 @@
         width: 100%;
         padding: 0.8rem;
         font-size: 1rem;
+    }
+
+    .password-field {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    .password-field .form-control {
+        padding-right: 2.75rem;
+    }
+
+    .toggle-visibility {
+        position: absolute;
+        right: 0.6rem;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .toggle-visibility:focus {
+        outline: 2px solid var(--primary-light);
+        outline-offset: 2px;
+        border-radius: 4px;
     }
 
     .mt-2 {
@@ -649,3 +773,4 @@
         }
     }
 </style>
+

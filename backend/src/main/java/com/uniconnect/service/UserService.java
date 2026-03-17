@@ -2,6 +2,7 @@ package com.uniconnect.service;
 
 import com.uniconnect.dto.ProfileUpdateRequest;
 import com.uniconnect.dto.RegisterRequest;
+import com.uniconnect.model.Role;
 import com.uniconnect.model.User;
 import com.uniconnect.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -32,13 +33,30 @@ public class UserService implements UserDetailsService {
             throw new RuntimeException("Email already exists");
         }
 
+        if (request.getRole() == Role.UNDERGRADUATE) {
+            String email = request.getEmail() == null ? "" : request.getEmail().trim();
+            String registrationNumber = request.getRegistrationNumber() == null ? "" : request.getRegistrationNumber().trim();
+            if (email.isEmpty() || registrationNumber.isEmpty()) {
+                throw new IllegalArgumentException("MC number and university email are required for undergraduate registration");
+            }
+            String emailPrefix = email.split("@")[0];
+            if (!emailPrefix.equals(registrationNumber)) {
+                throw new IllegalArgumentException("MC number must match the email prefix before @");
+            }
+        }
+
+        String department = request.getDepartment();
+        if (request.getRole() == Role.UNDERGRADUATE && (department == null || department.trim().isEmpty())) {
+            department = "Department of Information Technology";
+        }
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
                 .phone(request.getPhone())
-                .department(request.getDepartment())
+                .department(department)
                 .profilePicture(request.getProfilePicture())
                 .registrationNumber(request.getRegistrationNumber())
                 .cpmNumber(request.getCpmNumber())
