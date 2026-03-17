@@ -1,4 +1,0 @@
-To Run
-Ensure MySQL is running and update credentials in application.properties if needed (defaults: root/root)
-Run: mvn spring-boot:run
-The study_materials table and uploads/materials/ directory are created automatically
