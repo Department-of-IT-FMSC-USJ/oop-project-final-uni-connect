@@ -12,7 +12,7 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 				<p class="welcome-subtitle">A unified ecosystem connecting Undergraduates, Academic Staff, Industry Alumni, and Department Leaders.</p>
 				<div class="cta-group">
 					<button id="hero-get-started" type="button" class="cta-btn cta-primary">Get Started</button>
-					<a href="#mentorship-model" class="cta-btn cta-secondary">Explore Mentorship Model</a>
+					<button id="hero-point-based" type="button" class="cta-btn cta-outline">Point Based System</button>
 				</div>
 			</div>
 			<div class="welcome-graphic" id="mentorship-model">
@@ -27,6 +27,20 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 <script>
 	const getStartedBtn = document.getElementById('hero-get-started');
 	getStartedBtn?.addEventListener('click', () => {
+		localStorage.setItem('authRedirect', '/profile');
+		if (typeof window !== 'undefined' && window.openLoginModal) {
+			window.openLoginModal();
+		}
+	});
+
+	const pointBasedBtn = document.getElementById('hero-point-based');
+	pointBasedBtn?.addEventListener('click', () => {
+		const token = localStorage.getItem('token');
+		if (token) {
+			window.location.href = '/point-based-system';
+			return;
+		}
+		localStorage.setItem('authRedirect', '/point-based-system');
 		if (typeof window !== 'undefined' && window.openLoginModal) {
 			window.openLoginModal();
 		}
@@ -142,6 +156,16 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 
 	.cta-secondary:hover {
 		background: #eceff7;
+	}
+
+	.cta-outline {
+		background: transparent;
+		color: #1e53b8;
+		border-color: #9bb7ec;
+	}
+
+	.cta-outline:hover {
+		background: rgba(30, 83, 184, 0.08);
 	}
 
 	:global(.interconnection-svg) {
