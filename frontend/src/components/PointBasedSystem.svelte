@@ -63,7 +63,8 @@
     onMount(() => {
         token = localStorage.getItem("token") || "";
         if (!token) {
-            window.location.href = "/profile";
+            accessState = "denied";
+            accessMessage = "Login required to access the Point Based System.";
             return;
         }
         loadProfile();
