@@ -60,6 +60,11 @@
     let searchTerm = "";
     let refreshTimer = null;
 
+    function updatePauseFromActive() {
+        if (!proofFormEl) return;
+        pauseAutoRefresh = proofFormEl.contains(document.activeElement);
+    }
+
     onMount(() => {
         token = localStorage.getItem("token") || "";
         if (!token) {
@@ -122,9 +127,11 @@
         }
         if (role === "UNDERGRADUATE") {
             refreshTimer = setInterval(() => {
-                loadProfile();
-                loadMyPoints();
-                loadMyProofs();
+                if (!pauseAutoRefresh) {
+                    loadProfile();
+                    loadMyPoints();
+                    loadMyProofs();
+                }
             }, 10000);
         } else if (role === "DEPARTMENT_REP" || role === "DEPARTMENT_HEAD") {
             refreshTimer = setInterval(() => {
@@ -151,8 +158,12 @@
                 })
             });
             if (!response.ok) {
-                throw new Error(await response.text());
+                const errorText = await response.text();
+                console.error("Proof submission failed:", response.status, errorText);
+                throw new Error(errorText);
             }
+            const savedProof = await response.json();
+            console.log("Proof submitted successfully:", savedProof);
             infoMessage = "Proof submitted successfully.";
             proofForm = { title: "", description: "", cpm: "", eventDate: "", category: "ACTIVITY", proofType: "", proofData: "" };
             pauseAutoRefresh = false;
@@ -171,9 +182,12 @@
                 headers: authHeaders()
             });
             if (!response.ok) {
-                throw new Error(await response.text());
+                const errorText = await response.text();
+                console.error("Failed to load my proofs:", response.status, errorText);
+                throw new Error(errorText);
             }
             myProofs = await response.json();
+            console.log("Loaded my proofs:", myProofs);
         } catch (error) {
             errorMessage = error.message || "Failed to load proofs.";
         }
@@ -206,11 +220,18 @@
                 throw new Error(await response.text());
             }
             repProofs = await response.json();
+            const existingEdits = repEdits;
             repEdits = repProofs.reduce((acc, proof) => {
-                acc[proof.id] = {
-                    points: proof.latestPoints ?? 1,
-                    category: proof.pointCategory || "ACTIVITY"
-                };
+                const current = existingEdits[proof.id];
+                // Preserve unsaved edit if it exists and differs from backend baseline
+                if (current && Number(current.points) !== Number(proof.latestPoints ?? 0)) {
+                    acc[proof.id] = current;
+                } else {
+                    acc[proof.id] = {
+                        points: proof.latestPoints ?? 1,
+                        category: proof.pointCategory || "ACTIVITY"
+                    };
+                }
                 return acc;
             }, {});
             if (role === "DEPARTMENT_HEAD") {
@@ -332,8 +353,8 @@
 
     function setCategory(category) {
         allocateForm.category = category;
-        const nextMax = category === "AWARD" ? 25 : 5;
-        if (!allocateForm.points || Number(allocateForm.points) > nextMax) {
+        const nextMax = getCategoryMax(category);
+        if (Number(allocateForm.points) > nextMax) {
             allocateForm.points = nextMax;
         }
     }
@@ -353,15 +374,6 @@
         repEdits = { ...repEdits, [proofId]: { ...edit, points: next } };
     }
 
-    function updateRepCategory(proofId, category) {
-        const proof = repProofs.find((p) => p.id === proofId);
-        if (isRepLocked(proof)) return;
-        const edit = repEdits[proofId];
-        if (!edit) return;
-        const max = getCategoryMax(category);
-        const nextPoints = Math.min(Number(edit.points || 1), max) || max;
-        repEdits = { ...repEdits, [proofId]: { ...edit, category, points: nextPoints } };
-    }
 
     async function saveRepEdit(proof) {
         if (isRepLocked(proof)) {
@@ -378,7 +390,7 @@
             const payload = {
                 studentId: Number(proof.studentId),
                 proofId: Number(proof.id),
-                category: edit.category,
+                category: proof.pointCategory || "ACTIVITY",
                 points: Number(edit.points),
                 note: "Inline allocation"
             };
@@ -590,7 +602,11 @@
         selectedProof = proof;
         allocateForm.studentId = String(proof.studentId ?? "");
         allocateForm.proofId = String(proof.id ?? "");
-        setCategory(allocateForm.category || "ACTIVITY");
+        allocateForm.category = proof.pointCategory || "ACTIVITY";
+        // Initialize points from current edit state if available, otherwise baseline
+        const currentEdit = repEdits[proof.id];
+        allocateForm.points = currentEdit ? currentEdit.points : (proof.latestPoints ?? 1);
+        setCategory(allocateForm.category);
     }
 
     function isImageProof(proof) {
@@ -1029,15 +1045,7 @@
                                             {/if}
                                         </td>
                                         <td>
-                                            <select
-                                                class="form-control compact"
-                                                value={repEdits[proof.id]?.category || proof.pointCategory || "ACTIVITY"}
-                                                on:change={(e) => updateRepCategory(proof.id, e.target.value)}
-                                                disabled={isRepLocked(proof)}
-                                            >
-                                                <option value="ACTIVITY">Participation</option>
-                                                <option value="AWARD">Achievement</option>
-                                            </select>
+                                            <span class="category-display">{formatCategory(proof.pointCategory)}</span>
                                         </td>
                                         <td>
                                             <div class="points-control">
@@ -1150,10 +1158,7 @@
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="form-label">Point Type</label>
-                                <select class="form-control" bind:value={allocateForm.category} on:change={(e) => setCategory(e.target.value)}>
-                                    <option value="ACTIVITY">Participation (1-5)</option>
-                                    <option value="AWARD">Achievement (1-25)</option>
-                                </select>
+                                <p class="detail-value">{formatCategory(allocateForm.category)}</p>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Points</label>
