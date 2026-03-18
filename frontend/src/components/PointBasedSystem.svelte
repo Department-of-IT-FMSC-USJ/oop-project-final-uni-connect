@@ -63,7 +63,8 @@
     onMount(() => {
         token = localStorage.getItem("token") || "";
         if (!token) {
-            window.location.href = "/profile";
+            accessState = "denied";
+            accessMessage = "Login required to access the Point Based System.";
             return;
         }
         loadProfile();
@@ -822,7 +823,10 @@
         <h2>Access Restricted</h2>
         <p>{accessMessage}</p>
         <div class="status-actions">
-            <button class="btn btn-primary" type="button" on:click={() => (showAccessLoginModal = true)}>Login</button>
+            <button class="btn btn-primary" type="button" on:click={() => {
+                localStorage.setItem('authRedirect', '/point-based-system');
+                showAccessLoginModal = true;
+            }}>Login</button>
             <a class="btn btn-outline" href="/">Back to Home</a>
         </div>
     </div>
