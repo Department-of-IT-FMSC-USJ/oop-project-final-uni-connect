@@ -59,11 +59,14 @@
     let statusFilter = "ALL";
     let searchTerm = "";
     let refreshTimer = null;
+<<<<<<< Updated upstream
 
     function updatePauseFromActive() {
         if (!proofFormEl) return;
         pauseAutoRefresh = proofFormEl.contains(document.activeElement);
     }
+=======
+>>>>>>> Stashed changes
 
     onMount(() => {
         token = localStorage.getItem("token") || "";
@@ -127,11 +130,17 @@
         }
         if (role === "UNDERGRADUATE") {
             refreshTimer = setInterval(() => {
+<<<<<<< Updated upstream
                 if (!pauseAutoRefresh) {
                     loadProfile();
                     loadMyPoints();
                     loadMyProofs();
                 }
+=======
+                loadProfile();
+                loadMyPoints();
+                loadMyProofs();
+>>>>>>> Stashed changes
             }, 10000);
         } else if (role === "DEPARTMENT_REP" || role === "DEPARTMENT_HEAD") {
             refreshTimer = setInterval(() => {

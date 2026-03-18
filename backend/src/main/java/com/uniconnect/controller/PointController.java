@@ -1,6 +1,7 @@
 package com.uniconnect.controller;
 
 import com.uniconnect.dto.AllocatePointsRequest;
+import com.uniconnect.dto.PendingAdjustRequest;
 import com.uniconnect.dto.PointAuditResponse;
 import com.uniconnect.dto.PointRecordResponse;
 import com.uniconnect.dto.ReviewPointsRequest;
@@ -41,6 +42,21 @@ public class PointController {
             @PathVariable Long recordId,
             @Valid @RequestBody ReviewPointsRequest request) {
         return ResponseEntity.ok(pointService.reviewPoints(user, recordId, request));
+    }
+
+    @PutMapping("/{recordId}/pending-adjust")
+    public ResponseEntity<PointRecordResponse> adjustPending(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long recordId,
+            @Valid @RequestBody PendingAdjustRequest request) {
+        return ResponseEntity.ok(pointService.adjustPendingPoints(user, recordId, request));
+    }
+
+    @PutMapping("/{recordId}/undo")
+    public ResponseEntity<PointRecordResponse> undoReview(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long recordId) {
+        return ResponseEntity.ok(pointService.undoReview(user, recordId));
     }
 
     @GetMapping("/my")
