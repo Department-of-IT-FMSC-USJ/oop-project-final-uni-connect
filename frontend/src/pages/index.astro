@@ -12,7 +12,7 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 				<p class="welcome-subtitle">A unified ecosystem connecting Undergraduates, Academic Staff, Industry Alumni, and Department Leaders.</p>
 				<div class="cta-group">
 					<button id="hero-get-started" type="button" class="cta-btn cta-primary">Get Started</button>
-					<a href="/point-based-system" class="cta-btn cta-outline">Point Based System</a>
+					<button id="hero-point-based" type="button" class="cta-btn cta-outline">Point Based System</button>
 				</div>
 			</div>
 			<div class="welcome-graphic" id="mentorship-model">
@@ -27,6 +27,20 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 <script>
 	const getStartedBtn = document.getElementById('hero-get-started');
 	getStartedBtn?.addEventListener('click', () => {
+		localStorage.setItem('authRedirect', '/profile');
+		if (typeof window !== 'undefined' && window.openLoginModal) {
+			window.openLoginModal();
+		}
+	});
+
+	const pointBasedBtn = document.getElementById('hero-point-based');
+	pointBasedBtn?.addEventListener('click', () => {
+		const token = localStorage.getItem('token');
+		if (token) {
+			window.location.href = '/point-based-system';
+			return;
+		}
+		localStorage.setItem('authRedirect', '/point-based-system');
 		if (typeof window !== 'undefined' && window.openLoginModal) {
 			window.openLoginModal();
 		}
