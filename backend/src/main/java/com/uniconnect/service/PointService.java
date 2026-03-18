@@ -2,6 +2,7 @@ package com.uniconnect.service;
 
 import com.uniconnect.dto.AllocatePointsRequest;
 import com.uniconnect.dto.EligibleStudentResponse;
+import com.uniconnect.dto.PendingAdjustRequest;
 import com.uniconnect.dto.PointAuditResponse;
 import com.uniconnect.dto.PointRecordResponse;
 import com.uniconnect.dto.ProofSummary;
@@ -158,6 +159,89 @@ public class PointService {
 
         pointAuditRepository.save(new PointAudit(saved, head, action, beforePoints, afterPoints,
                 request.getNote(), LocalDateTime.now()));
+        if (saved.getProofSubmission() != null) {
+            ProofSubmission proof = saved.getProofSubmission();
+            proof.setLatestPoints(saved.getPoints());
+            proof.setLatestStatus(saved.getStatus());
+            proof.setLatestCategory(saved.getCategory());
+            proofRepository.save(proof);
+        }
+
+        return toResponse(saved);
+    }
+
+    public PointRecordResponse adjustPendingPoints(User head, Long recordId, PendingAdjustRequest request) {
+        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can adjust points.");
+
+        PointRecord record = pointRecordRepository.findById(recordId)
+                .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
+
+        if (record.getStatus() != PointStatus.PENDING) {
+            throw new IllegalArgumentException("Only pending records can be adjusted.");
+        }
+
+        if (request.getAdjustedPoints() == null) {
+            throw new IllegalArgumentException("Adjusted points are required.");
+        }
+
+        PointCategory nextCategory = record.getCategory();
+        if (request.getCategory() != null && !request.getCategory().isBlank()) {
+            nextCategory = PointCategory.valueOf(request.getCategory().trim().toUpperCase());
+        }
+        validatePoints(nextCategory, request.getAdjustedPoints());
+
+        int beforePoints = Optional.ofNullable(record.getPoints()).orElse(0);
+        record.setCategory(nextCategory);
+        record.setPoints(request.getAdjustedPoints());
+        record.setReviewNote(request.getNote());
+        record.setAllocatedAt(LocalDateTime.now());
+
+        PointRecord saved = pointRecordRepository.save(record);
+        System.out.println("Adjusted pending record " + saved.getId()
+                + " proof=" + (saved.getProofSubmission() == null ? "null" : saved.getProofSubmission().getId())
+                + " points=" + saved.getPoints()
+                + " status=" + saved.getStatus()
+                + " allocatedAt=" + saved.getAllocatedAt());
+
+        pointAuditRepository.save(new PointAudit(saved, head, PointAction.ADJUSTED, beforePoints,
+                Optional.ofNullable(saved.getPoints()).orElse(0), request.getNote(), LocalDateTime.now()));
+
+        if (saved.getProofSubmission() != null) {
+            ProofSubmission proof = saved.getProofSubmission();
+            proof.setLatestPoints(saved.getPoints());
+            proof.setLatestStatus(saved.getStatus());
+            proof.setLatestCategory(saved.getCategory());
+            proofRepository.save(proof);
+        }
+
+        return toResponse(saved);
+    }
+
+    public PointRecordResponse undoReview(User head, Long recordId) {
+        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can undo reviews.");
+
+        PointRecord record = pointRecordRepository.findById(recordId)
+                .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
+
+        if (record.getStatus() == PointStatus.PENDING) {
+            return toResponse(record);
+        }
+
+        PointStatus beforeStatus = record.getStatus();
+        int beforePoints = Optional.ofNullable(record.getPoints()).orElse(0);
+
+        record.setStatus(PointStatus.PENDING);
+        record.setReviewedBy(null);
+        record.setReviewedAt(null);
+        record.setReviewNote("Undo by department head");
+
+        PointRecord saved = pointRecordRepository.save(record);
+
+        applyPointsDelta(saved.getStudent(), beforeStatus, saved.getStatus(), beforePoints, beforePoints);
+
+        pointAuditRepository.save(new PointAudit(saved, head, PointAction.ADJUSTED, beforePoints, beforePoints,
+                "Undo review", LocalDateTime.now()));
+
         if (saved.getProofSubmission() != null) {
             ProofSubmission proof = saved.getProofSubmission();
             proof.setLatestPoints(saved.getPoints());

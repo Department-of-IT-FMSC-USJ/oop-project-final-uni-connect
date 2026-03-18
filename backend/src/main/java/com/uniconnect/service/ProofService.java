@@ -47,6 +47,7 @@ public class ProofService {
                 LocalDateTime.now()
         );
         proof.setCpm(request.getCpm());
+        proof.setLatestCategory(request.getCategory());
         proof.setSubmissionCode(generateSubmissionCode(proof.getCreatedAt()));
 
         ProofSubmission saved = proofRepository.save(proof);
@@ -86,6 +87,10 @@ public class ProofService {
         String latestCategory = latestRecord
                 .map(record -> record.getCategory().name())
                 .orElse(proof.getLatestCategory() == null ? null : proof.getLatestCategory().name());
+        Long latestRecordId = latestRecord.map(PointRecord::getId).orElse(null);
+        String latestAllocatedByName = latestRecord
+                .map(record -> record.getAllocatedBy() == null ? null : record.getAllocatedBy().getFullName())
+                .orElse(null);
         return new ProofSubmissionResponse(
                 proof.getId(),
                 proof.getStudent().getId(),
@@ -100,7 +105,9 @@ public class ProofService {
                 proof.getCreatedAt(),
                 latestPoints,
                 latestStatus,
-                latestCategory
+                latestCategory,
+                latestRecordId,
+                latestAllocatedByName
         );
     }
 

@@ -18,11 +18,13 @@ public class ProofSubmissionResponse {
     private Integer latestPoints;
     private String pointStatus;
     private String pointCategory;
+    private Long latestRecordId;
+    private String latestAllocatedByName;
 
     public ProofSubmissionResponse(Long id, Long studentId, String studentName, String title, String description,
                                    String cpm, String submissionCode, LocalDate eventDate, String proofData,
                                    String proofType, LocalDateTime createdAt, Integer latestPoints, String pointStatus,
-                                   String pointCategory) {
+                                   String pointCategory, Long latestRecordId, String latestAllocatedByName) {
         this.id = id;
         this.studentId = studentId;
         this.studentName = studentName;
@@ -37,6 +39,8 @@ public class ProofSubmissionResponse {
         this.latestPoints = latestPoints;
         this.pointStatus = pointStatus;
         this.pointCategory = pointCategory;
+        this.latestRecordId = latestRecordId;
+        this.latestAllocatedByName = latestAllocatedByName;
     }
 
     public Long getId() {
@@ -93,5 +97,13 @@ public class ProofSubmissionResponse {
 
     public String getPointCategory() {
         return pointCategory;
+    }
+
+    public Long getLatestRecordId() {
+        return latestRecordId;
+    }
+
+    public String getLatestAllocatedByName() {
+        return latestAllocatedByName;
     }
 }

@@ -51,8 +51,9 @@
                     localStorage.setItem("token", token);
                 }
 
-                // Redirect exactly like screenshot demo
-                window.location.href = "/point-based-system";
+                const redirectTarget = localStorage.getItem("authRedirect") || "/profile";
+                localStorage.removeItem("authRedirect");
+                window.location.href = redirectTarget;
             } else {
                 // Login failed
                 errorMessage = "Invalid email or password.";
