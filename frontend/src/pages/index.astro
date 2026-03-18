@@ -25,18 +25,26 @@ import InterconnectionGraphic from '../components/InterconnectionGraphic.svelte'
 </Layout>
 
 <script>
-	const getStartedBtn = document.getElementById('hero-get-started');
-	getStartedBtn?.addEventListener('click', () => {
-		localStorage.setItem('authRedirect', '/profile');
-		if (typeof window !== 'undefined' && window.openLoginModal) {
-			window.openLoginModal();
-		}
-	});
+    const getStartedBtn = document.getElementById('hero-get-started');
+    getStartedBtn?.addEventListener('click', () => {
+        localStorage.setItem('authRedirect', '/profile');
+        if (typeof window !== 'undefined' && window.openLoginModal) {
+            window.openLoginModal();
+        }
+    });
 
-	const pointBasedBtn = document.getElementById('hero-point-based');
-	pointBasedBtn?.addEventListener('click', () => {
-		window.location.href = '/point-based-system';
-	});
+    const pointBasedBtn = document.getElementById('hero-point-based');
+    pointBasedBtn?.addEventListener('click', () => {
+        const token = localStorage.getItem('token');
+        if (token) {
+            window.location.href = '/point-based-system';
+            return;
+        }
+        localStorage.setItem('authRedirect', '/point-based-system');
+        if (typeof window !== 'undefined' && window.openLoginModal) {
+            window.openLoginModal();
+        }
+    });
 </script>
 
 <style>
