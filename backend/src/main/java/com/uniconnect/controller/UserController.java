@@ -132,10 +132,23 @@ public class UserController {
         return ResponseEntity.ok(Map.of("success", true, "data", students));
     }
 
+    @DeleteMapping("/{userId}")
+    public ResponseEntity<?> deleteUser(@AuthenticationPrincipal User currentUser,
+                                        @PathVariable Long userId) {
+        try {
+            userService.deleteAccount(currentUser, userId);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Account deleted successfully"));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     @GetMapping("/{userId}")
     public ResponseEntity<?> getUserById(@AuthenticationPrincipal User currentUser,
                                          @PathVariable Long userId) {
         return userRepository.findById(userId)
+                .filter(user -> Boolean.TRUE.equals(user.getActive()))
                 .map(user -> ResponseEntity.ok(Map.of("success", true, "data", user)))
                 .orElse(ResponseEntity.status(HttpStatus.NOT_FOUND)
                         .body(Map.of("success", false, "message", "User not found")));

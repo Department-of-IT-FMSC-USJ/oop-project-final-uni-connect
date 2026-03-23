@@ -7,35 +7,54 @@
   let user = getCurrentUser();
   let showDropdown = false;
   let showNotifications = false;
-  let notifications = [];
-  let unreadCount = 0;
+  let messageNotifications = [];
+  let systemNotifications = [];
+  let messageUnreadCount = 0;
+  let systemUnreadCount = 0;
   let notificationError = '';
   let notificationTimer = null;
+  let notificationsUnavailable = false;
 
   function toggleDropdown() {
     showDropdown = !showDropdown;
   }
 
   async function loadNotifications() {
+    if (notificationsUnavailable) {
+      return;
+    }
     notificationError = '';
     try {
-      const [conversations, unread] = await Promise.all([
+      const [conversations, unread, systemItems, systemUnread] = await Promise.all([
         api.get('/messages/conversations', { cache: false }),
-        api.get('/messages/unread-count', { cache: false })
+        api.get('/messages/unread-count', { cache: false }),
+        api.get('/notifications', { cache: false }),
+        api.get('/notifications/unread-count', { cache: false })
       ]);
-      notifications = Array.isArray(conversations) ? conversations : [];
-      unreadCount = unread?.unreadCount || 0;
+      messageNotifications = Array.isArray(conversations) ? conversations : [];
+      messageUnreadCount = unread?.unreadCount || 0;
+      systemNotifications = Array.isArray(systemItems) ? systemItems : [];
+      systemUnreadCount = systemUnread?.unreadCount || 0;
     } catch (e) {
-      notifications = [];
-      unreadCount = 0;
+      messageNotifications = [];
+      messageUnreadCount = 0;
+      systemNotifications = [];
+      systemUnreadCount = 0;
+      if (e?.status === 404 || e?.status === 405) {
+        notificationsUnavailable = true;
+      }
       notificationError = '';
     }
   }
 
-  function toggleNotifications() {
+  async function toggleNotifications() {
     showNotifications = !showNotifications;
     if (showNotifications) {
-      loadNotifications();
+      await loadNotifications();
+      if (!notificationsUnavailable && systemUnreadCount > 0) {
+        await api.put('/notifications/mark-all-read', {});
+        systemUnreadCount = 0;
+      }
     }
   }
 
@@ -55,6 +74,13 @@
     }
     if (user?.role === 'INDUSTRY_MENTOR') {
       window.location.href = `/industry-mentor/students?contact=${userId}`;
+    }
+  }
+
+  function openSystemNotification(item) {
+    showNotifications = false;
+    if (item?.link) {
+      window.location.href = item.link;
     }
   }
 
@@ -83,8 +109,8 @@
   <div class="header-actions">
     <div class="notifications">
       <button class="icon-btn" title="Notifications" on:click={toggleNotifications}>
-        {#if unreadCount > 0}
-          <span class="notification-badge">{unreadCount}</span>
+        {#if messageUnreadCount + systemUnreadCount > 0}
+          <span class="notification-badge">{messageUnreadCount + systemUnreadCount}</span>
         {/if}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
@@ -95,28 +121,45 @@
       {#if showNotifications}
         <div class="notification-panel">
           <div class="notification-head">
-            <strong>Messages</strong>
-            {#if unreadCount > 0}
-              <span class="notification-count">{unreadCount} unread</span>
+            <strong>Notifications</strong>
+            {#if messageUnreadCount + systemUnreadCount > 0}
+              <span class="notification-count">{messageUnreadCount + systemUnreadCount} unread</span>
             {/if}
           </div>
           {#if notificationError}
             <p class="notification-empty">{notificationError}</p>
-          {:else if notifications.length === 0}
-            <p class="notification-empty">No message notifications.</p>
+          {:else if notificationsUnavailable}
+            <p class="notification-empty">Notifications will appear after the backend is restarted with the latest routes.</p>
+          {:else if systemNotifications.length === 0 && messageNotifications.length === 0}
+            <p class="notification-empty">No notifications.</p>
           {:else}
-            {#each notifications as item}
-              <button class="notification-item" on:click={() => openConversation(item.userId)}>
-                <div class="notification-row">
-                  <strong>{item.fullName}</strong>
-                  {#if item.unreadCount > 0}
-                    <span class="notification-pill">{item.unreadCount}</span>
-                  {/if}
-                </div>
-                <p>{item.lastMessage || 'New message'}</p>
-                <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
-              </button>
-            {/each}
+            {#if systemNotifications.length > 0}
+              <div class="notification-section-title">System</div>
+              {#each systemNotifications as item}
+                <button class="notification-item" on:click={() => openSystemNotification(item)}>
+                  <div class="notification-row">
+                    <strong>{item.title}</strong>
+                  </div>
+                  <p>{item.message}</p>
+                  <span class="notification-time">{formatWhen(item.createdAt)}</span>
+                </button>
+              {/each}
+            {/if}
+            {#if messageNotifications.length > 0}
+              <div class="notification-section-title">Messages</div>
+              {#each messageNotifications as item}
+                <button class="notification-item" on:click={() => openConversation(item.userId)}>
+                  <div class="notification-row">
+                    <strong>{item.fullName}</strong>
+                    {#if item.unreadCount > 0}
+                      <span class="notification-pill">{item.unreadCount}</span>
+                    {/if}
+                  </div>
+                  <p>{item.lastMessage || 'New message'}</p>
+                  <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
+                </button>
+              {/each}
+            {/if}
           {/if}
         </div>
       {/if}
@@ -282,6 +325,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+  }
+  .notification-section-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--gray-500);
+    margin: 0.5rem 0;
   }
 
   .user-menu { position: relative; }

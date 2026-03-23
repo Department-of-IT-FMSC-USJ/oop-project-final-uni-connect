@@ -2,7 +2,12 @@ package com.uniconnect.service;
 
 import com.uniconnect.dto.ProofSubmissionRequest;
 import com.uniconnect.dto.ProofSubmissionResponse;
+import com.uniconnect.dto.ProofReviewRequest;
+import com.uniconnect.dto.PointRecordResponse;
+import com.uniconnect.dto.ReviewPointsRequest;
+import com.uniconnect.dto.AllocatePointsRequest;
 import com.uniconnect.model.PointRecord;
+import com.uniconnect.model.PointStatus;
 import com.uniconnect.model.ProofSubmission;
 import com.uniconnect.model.Role;
 import com.uniconnect.model.User;
@@ -29,12 +34,18 @@ public class ProofService {
     private final ProofSubmissionRepository proofRepository;
     private final UserRepository userRepository;
     private final PointRecordRepository pointRecordRepository;
+    private final PointService pointService;
+    private final SystemNotificationService systemNotificationService;
 
     public ProofService(ProofSubmissionRepository proofRepository, UserRepository userRepository,
-                        PointRecordRepository pointRecordRepository) {
+                        PointRecordRepository pointRecordRepository,
+                        PointService pointService,
+                        SystemNotificationService systemNotificationService) {
         this.proofRepository = proofRepository;
         this.userRepository = userRepository;
         this.pointRecordRepository = pointRecordRepository;
+        this.pointService = pointService;
+        this.systemNotificationService = systemNotificationService;
     }
 
     public ProofSubmissionResponse submitProof(User student, ProofSubmissionRequest request) {
@@ -128,6 +139,84 @@ public class ProofService {
     public ProofSubmission getProofById(Long id) {
         return proofRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Proof submission not found"));
+    }
+
+    public ProofSubmissionResponse reviewProof(User reviewer, Long proofId, ProofReviewRequest request) {
+        if (reviewer.getRole() != Role.DEPARTMENT_HEAD && reviewer.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException("Only department heads or assistants can review proof submissions.");
+        }
+
+        ProofSubmission proof = getProofById(proofId);
+        String action = request.getAction() == null ? "" : request.getAction().trim().toUpperCase();
+        if (!action.equals("APPROVE") && !action.equals("REJECT")) {
+            throw new IllegalArgumentException("Action must be APPROVE or REJECT.");
+        }
+
+        List<PointRecord> proofRecords = pointRecordRepository.findByProofSubmissionId(proofId);
+        PointRecord existingRecord = proofRecords.stream()
+                .max(Comparator.comparing(PointRecord::getAllocatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElse(null);
+
+        if (action.equals("APPROVE")) {
+            if (request.getPoints() == null || request.getPoints() <= 0) {
+                throw new IllegalArgumentException("Approved proof submissions must include points.");
+            }
+            if (request.getCategory() == null) {
+                request.setCategory(proof.getLatestCategory());
+            }
+            if (request.getCategory() == null) {
+                throw new IllegalArgumentException("This submission does not have a category. Ask the student to resubmit it.");
+            }
+
+            approveProofWithPoints(reviewer, proof, existingRecord, request);
+            return toResponse(proofRepository.findById(proof.getId()).orElse(proof));
+        }
+
+        if (existingRecord != null && existingRecord.getStatus() == PointStatus.PENDING) {
+            ReviewPointsRequest reviewRequest = new ReviewPointsRequest();
+            reviewRequest.setAction("REJECT");
+            reviewRequest.setNote(request.getNote());
+            pointService.reviewPoints(reviewer, existingRecord.getId(), reviewRequest);
+        } else {
+            proof.setLatestStatus(PointStatus.REJECTED);
+            proof.setLatestPoints(0);
+            proofRepository.save(proof);
+            systemNotificationService.createNotification(
+                    proof.getStudent().getId(),
+                    "Evidence Rejected",
+                    "Your evidence submission \"" + proof.getTitle() + "\" was rejected by the department.",
+                    "/undergraduate/points"
+            );
+        }
+
+        return toResponse(proofRepository.findById(proof.getId()).orElse(proof));
+    }
+
+    private void approveProofWithPoints(User reviewer, ProofSubmission proof, PointRecord existingRecord,
+                                        ProofReviewRequest request) {
+        if (existingRecord == null) {
+            AllocatePointsRequest allocateRequest = new AllocatePointsRequest();
+            allocateRequest.setStudentId(proof.getStudent().getId());
+            allocateRequest.setProofId(proof.getId());
+            allocateRequest.setPoints(request.getPoints());
+            allocateRequest.setCategory(request.getCategory());
+            allocateRequest.setNote(request.getNote());
+            PointRecordResponse createdRecord = pointService.allocatePoints(reviewer, allocateRequest);
+            existingRecord = pointRecordRepository.findById(createdRecord.getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Point record was not created successfully."));
+        }
+
+        ReviewPointsRequest reviewRequest = new ReviewPointsRequest();
+        if (existingRecord.getPoints() != null && existingRecord.getPoints().equals(request.getPoints())
+                && existingRecord.getCategory() == request.getCategory()) {
+            reviewRequest.setAction("APPROVE");
+        } else {
+            reviewRequest.setAction("ADJUST");
+            reviewRequest.setAdjustedPoints(request.getPoints());
+            reviewRequest.setCategory(request.getCategory().name());
+        }
+        reviewRequest.setNote(request.getNote());
+        pointService.reviewPoints(reviewer, existingRecord.getId(), reviewRequest);
     }
 
     public User getStudentById(Long studentId) {

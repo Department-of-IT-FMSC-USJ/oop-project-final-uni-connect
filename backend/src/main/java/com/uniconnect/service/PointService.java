@@ -38,6 +38,7 @@ public class PointService {
     private final UserRepository userRepository;
     private final MentorConnectionRepository mentorConnectionRepository;
     private final MentorRecommendationService mentorRecommendationService;
+    private final SystemNotificationService systemNotificationService;
 
     private final int mentorThreshold;
 
@@ -47,6 +48,7 @@ public class PointService {
                         UserRepository userRepository,
                         MentorConnectionRepository mentorConnectionRepository,
                         MentorRecommendationService mentorRecommendationService,
+                        SystemNotificationService systemNotificationService,
                         @Value("${uniconnect.points.mentor-threshold:50}") int mentorThreshold) {
         this.pointRecordRepository = pointRecordRepository;
         this.pointAuditRepository = pointAuditRepository;
@@ -54,11 +56,12 @@ public class PointService {
         this.userRepository = userRepository;
         this.mentorConnectionRepository = mentorConnectionRepository;
         this.mentorRecommendationService = mentorRecommendationService;
+        this.systemNotificationService = systemNotificationService;
         this.mentorThreshold = mentorThreshold;
     }
 
     public PointRecordResponse allocatePoints(User rep, AllocatePointsRequest request) {
-        requireRole(rep, Role.DEPARTMENT_HEAD, "Only department heads can allocate points.");
+        requireHodWorkspaceRole(rep, "Only department heads or assistants can allocate points.");
 
         User student = userRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new IllegalArgumentException("Student not found"));
@@ -103,7 +106,7 @@ public class PointService {
     }
 
     public List<PointRecordResponse> getPendingPoints(User head) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can review points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can review points.");
         return pointRecordRepository.findByStatus(PointStatus.PENDING).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -123,7 +126,7 @@ public class PointService {
             if (!record.getStudent().getId().equals(requester.getId())) {
                 throw new IllegalArgumentException("You can only view your own audit records.");
             }
-        } else if (requester.getRole() != Role.DEPARTMENT_HEAD) {
+        } else if (requester.getRole() != Role.DEPARTMENT_HEAD && requester.getRole() != Role.DEPARTMENT_ASSISTANT) {
             throw new IllegalArgumentException("Not authorized to view audit records.");
         }
 
@@ -133,7 +136,7 @@ public class PointService {
     }
 
     public PointRecordResponse reviewPoints(User head, Long recordId, ReviewPointsRequest request) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can review points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can review points.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -180,11 +183,27 @@ public class PointService {
             proofRepository.save(proof);
         }
 
+        if (saved.getStatus() == PointStatus.APPROVED) {
+            systemNotificationService.createNotification(
+                    saved.getStudent().getId(),
+                    "Points Approved",
+                    "Your submission was approved and " + afterPoints + " points were added to your account.",
+                    "/undergraduate/points"
+            );
+        } else if (saved.getStatus() == PointStatus.REJECTED) {
+            systemNotificationService.createNotification(
+                    saved.getStudent().getId(),
+                    "Submission Rejected",
+                    "Your submission was reviewed and rejected by the department.",
+                    "/undergraduate/points"
+            );
+        }
+
         return toResponse(saved);
     }
 
     public PointRecordResponse adjustPendingPoints(User head, Long recordId, PendingAdjustRequest request) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can adjust points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can adjust points.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -231,7 +250,7 @@ public class PointService {
     }
 
     public PointRecordResponse undoReview(User head, Long recordId) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can undo reviews.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can undo reviews.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -267,8 +286,8 @@ public class PointService {
     }
 
     public List<EligibleStudentResponse> getEligibleStudents(User requester) {
-        if (requester.getRole() != Role.DEPARTMENT_HEAD) {
-            throw new IllegalArgumentException("Only department heads can view eligible students.");
+        if (requester.getRole() != Role.DEPARTMENT_HEAD && requester.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException("Only department heads or assistants can view eligible students.");
         }
 
         List<User> eligible = userRepository.findByMentorEligibleTrue();
@@ -441,5 +460,11 @@ public class PointService {
             case "ADJUST", "ADJUSTED" -> PointAction.ADJUSTED;
             default -> throw new IllegalArgumentException("Invalid action. Use APPROVE, REJECT, or ADJUST.");
         };
+    }
+
+    private void requireHodWorkspaceRole(User user, String message) {
+        if (user.getRole() != Role.DEPARTMENT_HEAD && user.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }

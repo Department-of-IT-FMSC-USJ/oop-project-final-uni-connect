@@ -9,6 +9,7 @@
   let students = [];
   let loading = true;
   let error = '';
+  let query = '';
   let selectedContact = null;
   let initialContactId = null;
 
@@ -33,6 +34,16 @@
       loading = false;
     }
   });
+
+  const filteredStudents = () => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return students;
+    return students.filter((student) =>
+      [student.fullName, student.registrationNumber, student.email, student.department, student.yearOfStudy]
+        .filter(Boolean)
+        .some((value) => value.toString().toLowerCase().includes(normalized))
+    );
+  };
 </script>
 
 <DashboardLayout navItems={industryMentorNavItems} activeItem="students" pageTitle="Students">
@@ -49,12 +60,15 @@
   </section>
 
   <section class="card">
+    <div class="toolbar">
+      <input class="input search-input" bind:value={query} placeholder="Search by name, registration, email, department, or year" />
+    </div>
     {#if error}
       <div class="alert alert-error">{error}</div>
     {/if}
     {#if loading}
       <p class="empty-state">Loading students...</p>
-    {:else if students.length === 0}
+    {:else if filteredStudents().length === 0}
       <p class="empty-state">No connected students yet.</p>
     {:else}
       <div class="table-wrapper">
@@ -70,7 +84,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each students as student}
+            {#each filteredStudents() as student}
               <tr>
                 <td><strong>{student.fullName}</strong></td>
                 <td>{student.registrationNumber || '-'}</td>
@@ -97,6 +111,8 @@
   .hero-copy { color:var(--gray-600); max-width:40rem; }
   .hero-count { display:block; font-size:2rem; font-weight:700; color:var(--primary); }
   .hero-label { color:var(--gray-500); font-size:0.85rem; }
+  .toolbar { margin-bottom:1rem; }
+  .search-input { max-width:480px; }
   .table-wrapper { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; }
   th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--gray-200); text-align:left; }

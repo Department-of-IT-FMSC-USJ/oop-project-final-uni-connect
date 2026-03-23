@@ -12,6 +12,7 @@
 
   const user = getCurrentUser();
   const isMentorMode = mode === 'mentors';
+  const canDeleteUsers = user?.role === 'DEPARTMENT_HEAD';
 
   let loading = true;
   let error = '';
@@ -90,9 +91,30 @@
       const res = await api.get(`/users/${userId}`, { cache: false });
       selectedUser = res.data || null;
     } catch (e) {
-      detailError = 'Failed to load the selected profile.';
+      detailError = (e?.status === 404 || e?.status === 405)
+        ? 'The backend is still running without the latest user profile route. Restart the backend server and try again.'
+        : (e?.data?.message || 'Failed to load the selected profile.');
     } finally {
       detailLoading = false;
+    }
+  }
+
+  async function deleteAccount(entry) {
+    if (!canDeleteUsers) return;
+    if (!window.confirm(`Delete ${entry.fullName || 'this account'}? This will disable the account and remove it from active use.`)) {
+      return;
+    }
+
+    try {
+      await api.delete(`/users/${entry.id}`);
+      await loadUsers();
+      if (selectedUser?.id === entry.id) {
+        closeModal();
+      }
+    } catch (e) {
+      error = (e?.status === 404 || e?.status === 405)
+        ? 'The backend is still running without the latest delete account route. Restart the backend server and try again.'
+        : (e?.data?.message || 'Failed to delete the selected account.');
     }
   }
 
@@ -175,6 +197,11 @@
                     <button class="btn btn-outline btn-sm" on:click={() => viewUserProfile(entry.id)}>
                       View Profile
                     </button>
+                    {#if canDeleteUsers}
+                      <button class="btn btn-danger btn-sm action-gap" on:click={() => deleteAccount(entry)}>
+                        Delete
+                      </button>
+                    {/if}
                   </td>
                 </tr>
               {/each}
@@ -382,6 +409,10 @@
   .btn-sm {
     padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
+  }
+
+  .action-gap {
+    margin-left: 0.5rem;
   }
 
   .profile-modal {

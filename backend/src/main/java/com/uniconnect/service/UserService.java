@@ -33,7 +33,7 @@ public class UserService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        return userRepository.findByEmail(username)
+        return userRepository.findByEmailAndActiveTrue(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found with email: " + username));
     }
 
@@ -125,7 +125,7 @@ public class UserService implements UserDetailsService {
             if (!currentIsHead) {
                 throw new IllegalArgumentException("Only department heads can create department assistants.");
             }
-            long assistantCount = userRepository.countByRoleAndManagedByDepartmentHeadId(Role.DEPARTMENT_ASSISTANT, currentUser.getId());
+            long assistantCount = userRepository.countByRoleAndManagedByDepartmentHeadIdAndActiveTrue(Role.DEPARTMENT_ASSISTANT, currentUser.getId());
             if (assistantCount >= 2) {
                 throw new IllegalArgumentException("A department head can only have up to 2 assistants.");
             }
@@ -179,7 +179,7 @@ public class UserService implements UserDetailsService {
     }
 
     public List<User> getUsersByRole(Role role) {
-        return userRepository.findByRole(role);
+        return userRepository.findByRoleAndActiveTrue(role);
     }
 
     public List<User> getDepartmentAssistants(User currentUser) {
@@ -189,18 +189,53 @@ public class UserService implements UserDetailsService {
         if (managerId == null) {
             return List.of();
         }
-        return userRepository.findByRoleAndManagedByDepartmentHeadId(Role.DEPARTMENT_ASSISTANT, managerId);
+        return userRepository.findByRoleAndManagedByDepartmentHeadIdAndActiveTrue(Role.DEPARTMENT_ASSISTANT, managerId);
+    }
+
+    public void deleteAccount(User currentUser, Long userId) {
+        if (currentUser.getRole() != Role.DEPARTMENT_HEAD) {
+            throw new IllegalArgumentException("Only department heads can delete accounts.");
+        }
+
+        User target = userRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found."));
+
+        if (Boolean.FALSE.equals(target.getActive())) {
+            return;
+        }
+
+        if (target.getRole() != Role.DEPARTMENT_ASSISTANT
+                && target.getRole() != Role.ACADEMIC_MENTOR
+                && target.getRole() != Role.INDUSTRY_MENTOR
+                && target.getRole() != Role.UNDERGRADUATE) {
+            throw new IllegalArgumentException("This account type cannot be deleted from the HOD workspace.");
+        }
+
+        if (target.getRole() == Role.DEPARTMENT_ASSISTANT
+                && !currentUser.getId().equals(target.getManagedByDepartmentHeadId())) {
+            throw new IllegalArgumentException("You can only delete assistants created under your department workspace.");
+        }
+
+        target.setActive(false);
+        target.setEmail(buildDeletedEmail(target));
+        userRepository.save(target);
+    }
+
+    private String buildDeletedEmail(User target) {
+        String original = target.getEmail() == null ? "deleted@uniconnect.local" : target.getEmail().trim().toLowerCase();
+        String local = original.contains("@") ? original.substring(0, original.indexOf('@')) : original;
+        return "deleted+" + target.getId() + "+" + local + "@uniconnect.local";
     }
 
     public List<User> searchStudentsByMinGpa(String department) {
-        return userRepository.findByRole(Role.UNDERGRADUATE).stream()
+        return userRepository.findByRoleAndActiveTrue(Role.UNDERGRADUATE).stream()
                 .filter(u -> department == null || department.isEmpty()
                         || (u.getDepartment() != null && u.getDepartment().equalsIgnoreCase(department)))
                 .collect(Collectors.toList());
     }
 
     public List<User> getTopStudentsByPoints(int limit) {
-        return userRepository.findByRole(Role.UNDERGRADUATE).stream()
+        return userRepository.findByRoleAndActiveTrue(Role.UNDERGRADUATE).stream()
                 .sorted((a, b) -> {
                     int pa = a.getCumulativePoints() == null ? 0 : a.getCumulativePoints();
                     int pb = b.getCumulativePoints() == null ? 0 : b.getCumulativePoints();

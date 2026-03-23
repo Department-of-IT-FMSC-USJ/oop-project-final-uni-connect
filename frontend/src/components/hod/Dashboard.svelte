@@ -17,6 +17,16 @@
   let showEvidenceReview = false;
   let showAddMentor = false;
   let showAssistantHelp = false;
+  let selectedProof = null;
+  let proofReviewAction = 'APPROVE';
+  let proofReviewForm = { points: '', note: '' };
+  let proofReviewError = '';
+  let proofReviewLoading = false;
+  let selectedStudent = null;
+  let showAwardPoints = false;
+  let pointForm = { points: '', category: 'ACTIVITY', note: '' };
+  let pointError = '';
+  let pointLoading = false;
   let searchQuery = '';
   let searchResults = [];
   let searchLoading = false;
@@ -139,6 +149,10 @@
     } catch (e) { console.error('Failed to load proofs', e); }
   }
 
+  function getPendingProofs() {
+    return proofs.filter((proof) => !proof.latestStatus || proof.latestStatus === 'PENDING');
+  }
+
   async function searchStudents() {
     const query = searchQuery.trim();
     searchController?.abort();
@@ -173,11 +187,125 @@
   }
 
   async function reviewProof(proofId, action) {
+    const payload = {
+      action,
+      note: proofReviewForm.note.trim()
+    };
+    if (action === 'APPROVE') {
+      payload.points = Number(proofReviewForm.points);
+    }
     try {
-      await api.put(`/proofs/${proofId}/review`, { action });
+      await api.put(`/proofs/${proofId}/review`, payload);
+      proofs = proofs.map((proof) => (
+        proof.id === proofId
+          ? {
+              ...proof,
+              latestStatus: action === 'APPROVE' ? 'APPROVED' : 'REJECTED'
+            }
+          : proof
+      ));
+      pendingProofCount = getPendingProofs().length;
       invalidateApiCache('/proofs');
-      loadProofs({ force: true });
-    } catch (e) { console.error('Failed to review proof', e); }
+      await Promise.all([
+        loadProofs({ force: true }),
+        loadTopStudents({ force: true }),
+        loadSummaryCounts({ force: true })
+      ]);
+      selectedProof = null;
+      proofReviewForm = { points: '', note: '' };
+      proofReviewError = '';
+    } catch (e) {
+      proofReviewError = (e?.status === 404 || e?.status === 405)
+        ? 'The backend is still running without the latest proof review route. Restart the backend server and try again.'
+        : (e?.data?.message || 'Failed to review proof.');
+    }
+  }
+
+  function openProofReview(proof, action) {
+    selectedProof = proof;
+    proofReviewAction = action;
+    proofReviewError = '';
+    proofReviewForm = {
+      points: proof?.latestPoints || '',
+      note: ''
+    };
+  }
+
+  async function submitProofReview() {
+    if (!selectedProof) return;
+    proofReviewError = '';
+    if (proofReviewAction === 'APPROVE' && (!proofReviewForm.points || Number(proofReviewForm.points) <= 0)) {
+      proofReviewError = 'Enter a valid point value before approving.';
+      return;
+    }
+    proofReviewLoading = true;
+    try {
+      await reviewProof(selectedProof.id, proofReviewAction);
+    } finally {
+      proofReviewLoading = false;
+    }
+  }
+
+  function openAwardPoints(student) {
+    selectedStudent = student;
+    showAwardPoints = true;
+    pointError = '';
+    pointForm = { points: '', category: 'ACTIVITY', note: '' };
+  }
+
+  async function submitAwardPoints() {
+    pointError = '';
+    if (!selectedStudent) return;
+    if (!pointForm.points || Number(pointForm.points) <= 0) {
+      pointError = 'Enter a valid point value.';
+      return;
+    }
+    pointLoading = true;
+    try {
+      const allocated = await api.post('/points/allocate', {
+        studentId: selectedStudent.id,
+        points: Number(pointForm.points),
+        category: pointForm.category,
+        note: pointForm.note.trim()
+      });
+      await api.put(`/points/${allocated.id}/review`, {
+        action: 'APPROVE',
+        note: pointForm.note.trim()
+      });
+      showAwardPoints = false;
+      selectedStudent = null;
+      pointForm = { points: '', category: 'ACTIVITY', note: '' };
+      await Promise.all([
+        loadTopStudents({ force: true }),
+        loadSummaryCounts({ force: true })
+      ]);
+    } catch (e) {
+      pointError = (e?.status === 404 || e?.status === 405)
+        ? 'The backend is still running without the latest points routes. Restart the backend server and try again.'
+        : (e?.data?.message || 'Failed to award points.');
+    } finally {
+      pointLoading = false;
+    }
+  }
+
+  async function deleteUser(userId, label) {
+    if (!window.confirm(`Delete ${label}? This will disable the account and remove it from active use.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/users/${userId}`);
+      invalidateApiCache('/users');
+      await Promise.all([
+        loadSummaryCounts({ force: true }),
+        loadAssistants({ force: true }),
+        searchQuery.trim() ? searchStudents() : Promise.resolve()
+      ]);
+      searchResults = searchResults.filter((entry) => entry.id !== userId);
+    } catch (e) {
+      dashboardError = (e?.status === 404 || e?.status === 405)
+        ? 'The backend is still running without the latest delete account route. Restart the backend server and try again.'
+        : (e?.data?.message || 'Failed to delete account.');
+    }
   }
 
   async function createMentorAccount() {
@@ -296,6 +424,11 @@
             <div class="assistant-meta">
               <span>{assistant.department || '-'}</span>
               <span>{assistant.phone || 'No phone'}</span>
+              {#if isDepartmentHead}
+                <button class="btn btn-danger btn-sm" on:click={() => deleteUser(assistant.id, assistant.fullName)}>
+                  Delete
+                </button>
+              {/if}
             </div>
           </div>
         {/each}
@@ -309,7 +442,7 @@
       <h3>Search Results</h3>
       <div class="table-wrapper">
         <table>
-          <thead><tr><th>Name</th><th>Reg. No</th><th>Year</th><th>Points</th><th>Department</th></tr></thead>
+          <thead><tr><th>Name</th><th>Reg. No</th><th>Year</th><th>Points</th><th>Department</th><th>Action</th></tr></thead>
           <tbody>
             {#each searchResults as student}
               <tr>
@@ -318,11 +451,16 @@
                 <td>Year {student.yearOfStudy || '-'}</td>
                 <td><span class="badge badge-info">{student.cumulativePoints || 0}</span></td>
                 <td>{student.department || '-'}</td>
+                <td><button class="btn btn-outline btn-sm" on:click={() => openAwardPoints(student)}>Award Points</button></td>
               </tr>
             {/each}
           </tbody>
         </table>
       </div>
+    </div>
+  {:else if searchQuery.trim() && !searchLoading}
+    <div class="card search-results">
+      <p class="empty-state">No students found for that search.</p>
     </div>
   {/if}
 
@@ -396,19 +534,26 @@
         </div>
         {#if dashboardLoading && proofs.length === 0}
           <p class="empty-state">Loading evidence submissions...</p>
-        {:else if proofs.length === 0}
-          <p class="empty-state">No evidence submissions</p>
+        {:else if getPendingProofs().length === 0}
+          <p class="empty-state">No pending evidence submissions</p>
         {:else}
           <div class="table-wrapper">
             <table>
-              <thead><tr><th>Student</th><th>Title</th><th>Type</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead>
+              <thead><tr><th>Student</th><th>Title</th><th>Category</th><th>Date</th><th>Evidence</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody>
-                {#each proofs as proof}
+                {#each getPendingProofs() as proof}
                   <tr>
                     <td>{proof.studentName || `Student #${proof.studentId}`}</td>
                     <td>{proof.title}</td>
-                    <td>{proof.proofType || '-'}</td>
+                    <td>{proof.pointCategory || '-'}</td>
                     <td>{proof.eventDate || '-'}</td>
+                    <td>
+                      {#if proof.proofData}
+                        <a class="btn btn-outline btn-xs" href={proof.proofData} target="_blank" rel="noreferrer">View Link</a>
+                      {:else}
+                        <span class="text-muted">No link</span>
+                      {/if}
+                    </td>
                     <td>
                       <span class="badge" class:badge-warning={proof.latestStatus === 'PENDING' || !proof.latestStatus}
                         class:badge-success={proof.latestStatus === 'APPROVED'}
@@ -418,8 +563,8 @@
                     </td>
                     <td>
                       {#if !proof.latestStatus || proof.latestStatus === 'PENDING'}
-                        <button class="btn btn-success btn-xs" on:click={() => reviewProof(proof.id, 'APPROVE')}>Approve</button>
-                        <button class="btn btn-danger btn-xs" on:click={() => reviewProof(proof.id, 'REJECT')}>Reject</button>
+                        <button class="btn btn-success btn-xs" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
+                        <button class="btn btn-danger btn-xs" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
                       {:else}
                         <span class="text-muted">Reviewed</span>
                       {/if}
@@ -430,6 +575,83 @@
             </table>
           </div>
         {/if}
+      </div>
+    </div>
+  {/if}
+
+  {#if selectedProof}
+    <div class="modal-overlay" on:click|self={() => selectedProof = null}>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>{proofReviewAction === 'APPROVE' ? 'Approve Evidence' : 'Reject Evidence'}</h2>
+          <button class="close-btn" on:click={() => selectedProof = null}>✕</button>
+        </div>
+        {#if proofReviewError}<div class="alert-error">{proofReviewError}</div>{/if}
+        <p class="modal-desc">{selectedProof.studentName || `Student #${selectedProof.studentId}`} submitted "{selectedProof.title}".</p>
+        <div class="form-group">
+          <label>Review Note</label>
+          <textarea class="input" rows="3" bind:value={proofReviewForm.note} placeholder="Optional note for the student"></textarea>
+        </div>
+        <div class="detail-summary">
+          <div><strong>Category:</strong> {selectedProof.pointCategory || '-'}</div>
+          <div>
+            <strong>Evidence Link:</strong>
+            {#if selectedProof.proofData}
+              <a href={selectedProof.proofData} target="_blank" rel="noreferrer">Open submitted evidence</a>
+            {:else}
+              <span> Not available</span>
+            {/if}
+          </div>
+        </div>
+        {#if proofReviewAction === 'APPROVE'}
+          <div class="form-group">
+            <label>Points</label>
+            <input type="number" min="1" class="input" bind:value={proofReviewForm.points} />
+          </div>
+        {/if}
+        <div class="modal-actions">
+          <button class="btn btn-outline" on:click={() => selectedProof = null}>Cancel</button>
+          <button class="btn {proofReviewAction === 'APPROVE' ? 'btn-success' : 'btn-danger'}" on:click={submitProofReview} disabled={proofReviewLoading}>
+            {proofReviewLoading ? 'Saving...' : (proofReviewAction === 'APPROVE' ? 'Approve and Add Points' : 'Reject Evidence')}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if showAwardPoints && selectedStudent}
+    <div class="modal-overlay" on:click|self={() => showAwardPoints = false}>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Award Points</h2>
+          <button class="close-btn" on:click={() => showAwardPoints = false}>✕</button>
+        </div>
+        {#if pointError}<div class="alert-error">{pointError}</div>{/if}
+        <p class="modal-desc">Award points directly to {selectedStudent.fullName}.</p>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Points</label>
+            <input type="number" min="1" class="input" bind:value={pointForm.points} />
+          </div>
+          <div class="form-group">
+            <label>Category</label>
+            <select class="input" bind:value={pointForm.category}>
+              <option value="ACTIVITY">Activity</option>
+              <option value="AWARD">Award</option>
+              <option value="DIRECT">Direct</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Note</label>
+          <textarea class="input" rows="3" bind:value={pointForm.note} placeholder="Reason for awarding these points"></textarea>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" on:click={() => showAwardPoints = false}>Cancel</button>
+          <button class="btn btn-primary" on:click={submitAwardPoints} disabled={pointLoading}>
+            {pointLoading ? 'Saving...' : 'Award Points'}
+          </button>
+        </div>
       </div>
     </div>
   {/if}
@@ -684,6 +906,15 @@
   .close-btn:hover { color: var(--gray-600); }
   .modal-desc { color: var(--gray-500); font-size: 0.875rem; margin-bottom: 1.25rem; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+  .detail-summary {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: var(--radius);
+    background: var(--gray-50);
+    color: var(--gray-700);
+  }
 
   .form-group { margin-bottom: 1rem; }
   .form-group label { display: block; font-size: 0.8125rem; font-weight: 500; color: var(--gray-700); margin-bottom: 0.375rem; }

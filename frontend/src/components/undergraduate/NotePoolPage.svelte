@@ -12,6 +12,7 @@
   let uploadError = '';
   let uploadSuccess = '';
   let showUpload = false;
+  let query = '';
   let yearFilter = '';
   let typeFilter = 'NOTES';
   let form = {
@@ -57,7 +58,11 @@
     return materials.filter((item) => {
       const typeOk = !typeFilter || item.materialType === typeFilter;
       const yearOk = !yearFilter || item.targetYearOfStudy === yearFilter;
-      return typeOk && yearOk;
+      const normalized = query.trim().toLowerCase();
+      const queryOk = !normalized || [item.title, item.description, uploaderName(item), item.materialType]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalized));
+      return typeOk && yearOk && queryOk;
     });
   }
 
@@ -132,6 +137,7 @@
 
   <section class="card">
     <div class="toolbar">
+      <input class="input search-input" bind:value={query} placeholder="Search by title, description, uploader, or type" />
       <select class="input compact" bind:value={typeFilter}>
         <option value="">All types</option>
         <option value="NOTES">Notes</option>
@@ -245,6 +251,7 @@
   .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--accent); margin-bottom:0.5rem; }
   .hero-copy,.muted,.helper-text { color:var(--gray-600); }
   .toolbar { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem; }
+  .search-input { min-width:min(100%, 320px); }
   .compact { width: 180px; }
   .table-wrapper { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; }
