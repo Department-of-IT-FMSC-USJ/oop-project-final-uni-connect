@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { api, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
+  import { api, getCurrentUser, getRoleDashboardPath, isHodWorkspaceRole } from '../../lib/api.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
 
   export let navItems = [];
@@ -28,7 +28,7 @@
       return;
     }
 
-    if (user.role !== 'DEPARTMENT_HEAD') {
+    if (!isHodWorkspaceRole(user.role)) {
       window.location.href = getRoleDashboardPath(user.role);
       return;
     }

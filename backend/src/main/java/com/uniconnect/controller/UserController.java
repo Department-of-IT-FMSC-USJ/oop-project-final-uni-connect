@@ -44,18 +44,20 @@ public class UserController {
     @PostMapping("/create-account")
     public ResponseEntity<?> createAccount(@AuthenticationPrincipal User currentUser,
                                            @Valid @RequestBody CreateAccountRequest request) {
-        if (currentUser.getRole() != Role.DEPARTMENT_HEAD) {
+        if (currentUser.getRole() != Role.DEPARTMENT_HEAD && currentUser.getRole() != Role.DEPARTMENT_ASSISTANT) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Only department heads can create accounts"));
+                    .body(Map.of("success", false, "message", "Only department heads or department assistants can create accounts"));
         }
 
-        if (request.getRole() != Role.ACADEMIC_MENTOR && request.getRole() != Role.INDUSTRY_MENTOR) {
+        if (request.getRole() != Role.ACADEMIC_MENTOR
+                && request.getRole() != Role.INDUSTRY_MENTOR
+                && request.getRole() != Role.DEPARTMENT_ASSISTANT) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("success", false, "message", "Can only create ACADEMIC_MENTOR or INDUSTRY_MENTOR accounts"));
+                    .body(Map.of("success", false, "message", "Can only create ACADEMIC_MENTOR, INDUSTRY_MENTOR, or DEPARTMENT_ASSISTANT accounts"));
         }
 
         try {
-            User created = userService.createAccount(request);
+            User created = userService.createAccount(currentUser, request);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(Map.of("success", true, "message", "Account created successfully", "data", created));
         } catch (Exception e) {
@@ -64,10 +66,22 @@ public class UserController {
         }
     }
 
+    @GetMapping("/hod-assistants")
+    public ResponseEntity<?> getDepartmentAssistants(@AuthenticationPrincipal User currentUser) {
+        if (currentUser.getRole() != Role.DEPARTMENT_HEAD && currentUser.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("success", false, "message", "Only department heads or assistants can view department assistants"));
+        }
+
+        List<User> assistants = userService.getDepartmentAssistants(currentUser);
+        return ResponseEntity.ok(Map.of("success", true, "data", assistants));
+    }
+
     @GetMapping("/by-role/{role}")
     public ResponseEntity<?> getUsersByRole(@AuthenticationPrincipal User currentUser,
                                             @PathVariable String role) {
         if (currentUser.getRole() != Role.DEPARTMENT_HEAD
+                && currentUser.getRole() != Role.DEPARTMENT_ASSISTANT
                 && currentUser.getRole() != Role.ACADEMIC_MENTOR
                 && currentUser.getRole() != Role.INDUSTRY_MENTOR) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
@@ -88,9 +102,9 @@ public class UserController {
     public ResponseEntity<?> searchStudents(@AuthenticationPrincipal User currentUser,
                                             @RequestParam(required = false) String department,
                                             @RequestParam(required = false) String query) {
-        if (currentUser.getRole() != Role.DEPARTMENT_HEAD) {
+        if (currentUser.getRole() != Role.DEPARTMENT_HEAD && currentUser.getRole() != Role.DEPARTMENT_ASSISTANT) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Only department heads can search students"));
+                    .body(Map.of("success", false, "message", "Only department heads or assistants can search students"));
         }
 
         List<User> students = userService.searchStudentsByMinGpa(department);
@@ -109,9 +123,9 @@ public class UserController {
     @GetMapping("/students/top-points")
     public ResponseEntity<?> getTopStudents(@AuthenticationPrincipal User currentUser,
                                             @RequestParam(defaultValue = "10") int limit) {
-        if (currentUser.getRole() != Role.DEPARTMENT_HEAD) {
+        if (currentUser.getRole() != Role.DEPARTMENT_HEAD && currentUser.getRole() != Role.DEPARTMENT_ASSISTANT) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("success", false, "message", "Only department heads can view top students"));
+                    .body(Map.of("success", false, "message", "Only department heads or assistants can view top students"));
         }
 
         List<User> students = userService.getTopStudentsByPoints(limit);

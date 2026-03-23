@@ -1,18 +1,22 @@
 <script>
   import { onMount } from 'svelte';
-  import { api, getCurrentUser, getRoleDashboardPath, invalidateApiCache } from '../../lib/api.js';
+  import { api, getCurrentUser, getRoleDashboardPath, invalidateApiCache, isHodWorkspaceRole } from '../../lib/api.js';
   import { hodNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
 
   let user = getCurrentUser();
+  const isDepartmentHead = user?.role === 'DEPARTMENT_HEAD';
   let feedbacks = [];
   let topStudents = [];
   let proofs = [];
   let pendingProofCount = 0;
   let mentorCount = 0;
   let studentCount = 0;
+  let assistantCount = 0;
+  let assistants = [];
   let showEvidenceReview = false;
   let showAddMentor = false;
+  let showAssistantHelp = false;
   let searchQuery = '';
   let searchResults = [];
   let searchLoading = false;
@@ -27,7 +31,7 @@
   let maxRating = '3';
   let sortBy = 'rating_asc';
 
-  // Add mentor form
+  // Account creation form
   let mentorFullName = '';
   let mentorEmail = '';
   let mentorPassword = '';
@@ -41,7 +45,7 @@
   onMount(() => {
     mounted = true;
     if (!user) { window.location.href = '/'; return; }
-    if (user.role !== 'DEPARTMENT_HEAD') { window.location.href = getRoleDashboardPath(user.role); return; }
+    if (!isHodWorkspaceRole(user.role)) { window.location.href = getRoleDashboardPath(user.role); return; }
 
     loadDashboardData();
 
@@ -59,6 +63,7 @@
     try {
       await Promise.all([
         loadSummaryCounts({ force }),
+        loadAssistants({ force }),
         loadFeedbacks({ force }),
         loadTopStudents({ force }),
         loadProofs({ force })
@@ -101,6 +106,19 @@
       studentCount = students.length;
     } catch (e) {
       console.error('Failed to load summary counts', e);
+    }
+  }
+
+  async function loadAssistants({ force = false } = {}) {
+    try {
+      const res = await api.get('/users/hod-assistants', { cache: !force });
+      if (!mounted) return;
+      assistants = (res.data || []).sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+      assistantCount = assistants.length;
+    } catch (e) {
+      console.error('Failed to load assistants', e);
+      assistants = [];
+      assistantCount = 0;
     }
   }
 
@@ -176,8 +194,15 @@
         phone: mentorPhone
       });
       invalidateApiCache('/users');
-      mentorSuccess = `${mentorRole === 'ACADEMIC_MENTOR' ? 'Academic' : 'Industry'} mentor account created successfully!`;
+      mentorSuccess = mentorRole === 'DEPARTMENT_ASSISTANT'
+        ? 'Department assistant account created successfully.'
+        : `${mentorRole === 'ACADEMIC_MENTOR' ? 'Academic' : 'Industry'} mentor account created successfully!`;
       mentorFullName = ''; mentorEmail = ''; mentorPassword = ''; mentorPhone = '';
+      mentorRole = 'ACADEMIC_MENTOR';
+      await Promise.all([
+        loadSummaryCounts({ force: true }),
+        loadAssistants({ force: true })
+      ]);
     } catch (e) {
       mentorError = e.data?.message || 'Failed to create account';
     } finally { mentorLoading = false; }
@@ -205,6 +230,10 @@
       <span class="stat-label">Registered Students</span>
       <strong class="stat-value">{studentCount}</strong>
     </div>
+    <div class="card stat-card">
+      <span class="stat-label">Department Assistants</span>
+      <strong class="stat-value">{assistantCount}/2</strong>
+    </div>
   </div>
 
   <div class="top-actions">
@@ -223,8 +252,55 @@
     </button>
 
     <button class="btn btn-outline" on:click={() => showAddMentor = true}>
-      + Add Mentors
+      + Create Account
     </button>
+  </div>
+
+  <div class="card assistants-card">
+    <div class="card-header">
+      <div>
+        <h2 class="card-title assistant-title">Department Assistants</h2>
+        <p class="section-copy">
+          {#if isDepartmentHead}
+            Create up to two assistants for the HOD workspace. They can manage operations, but they cannot create other assistants.
+          {:else}
+            Assistant access includes HOD operational pages, but assistant creation remains restricted to the department head.
+          {/if}
+        </p>
+      </div>
+      {#if isDepartmentHead}
+        <button class="btn btn-outline btn-sm" on:click={() => showAssistantHelp = !showAssistantHelp}>
+          {showAssistantHelp ? 'Hide Rules' : 'Assistant Rules'}
+        </button>
+      {/if}
+    </div>
+
+    {#if showAssistantHelp && isDepartmentHead}
+      <div class="assistant-help">
+        <p>Limit: 2 assistants per department head.</p>
+        <p>Allowed: mentor account creation, student and mentor lookup, feedback review, and evidence review.</p>
+        <p>Blocked: assistant accounts can never create or manage other assistants.</p>
+      </div>
+    {/if}
+
+    {#if assistants.length === 0}
+      <p class="empty-state">No department assistants created yet.</p>
+    {:else}
+      <div class="assistant-list">
+        {#each assistants as assistant}
+          <div class="assistant-item">
+            <div>
+              <strong>{assistant.fullName}</strong>
+              <p>{assistant.email}</p>
+            </div>
+            <div class="assistant-meta">
+              <span>{assistant.department || '-'}</span>
+              <span>{assistant.phone || 'No phone'}</span>
+            </div>
+          </div>
+        {/each}
+      </div>
+    {/if}
   </div>
 
   <!-- Search Results -->
@@ -358,25 +434,36 @@
     </div>
   {/if}
 
-  <!-- Add Mentor Modal -->
+  <!-- Create Account Modal -->
   {#if showAddMentor}
     <div class="modal-overlay" on:click|self={() => showAddMentor = false}>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Add Mentor</h2>
+          <h2>Create Workspace Account</h2>
           <button class="close-btn" on:click={() => showAddMentor = false}>✕</button>
         </div>
-        <p class="modal-desc">Create an account for an academic or industry mentor.</p>
+        <p class="modal-desc">
+          {#if isDepartmentHead}
+            Create academic mentors, industry mentors, or up to two department assistants.
+          {:else}
+            Create academic or industry mentor accounts for the HOD workspace.
+          {/if}
+        </p>
 
         {#if mentorError}<div class="alert-error">{mentorError}</div>{/if}
         {#if mentorSuccess}<div class="alert-success">{mentorSuccess}</div>{/if}
 
         <form on:submit|preventDefault={createMentorAccount}>
           <div class="form-group">
-            <label>Mentor Type</label>
+            <label>Account Type</label>
             <select class="input" bind:value={mentorRole}>
               <option value="ACADEMIC_MENTOR">Academic Mentor</option>
               <option value="INDUSTRY_MENTOR">Industry Mentor</option>
+              {#if isDepartmentHead}
+                <option value="DEPARTMENT_ASSISTANT" disabled={assistantCount >= 2}>
+                  Department Assistant{assistantCount >= 2 ? ' (Limit Reached)' : ''}
+                </option>
+              {/if}
             </select>
           </div>
           <div class="form-group">
@@ -428,7 +515,7 @@
 
   .stats-strip {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
     margin-bottom: 1rem;
   }
@@ -489,6 +576,59 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 1.5rem;
+  }
+
+  .assistants-card {
+    margin-bottom: 1.5rem;
+  }
+
+  .assistant-title {
+    background: #dbeafe;
+    color: #1d4ed8;
+  }
+
+  .section-copy {
+    margin-top: 0.75rem;
+    color: var(--gray-600);
+  }
+
+  .assistant-help {
+    display: grid;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    border-radius: var(--radius);
+    background: var(--gray-50);
+    color: var(--gray-700);
+  }
+
+  .assistant-list {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .assistant-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--gray-200);
+    border-radius: var(--radius);
+    background: white;
+  }
+
+  .assistant-item p {
+    margin-top: 0.25rem;
+    color: var(--gray-500);
+  }
+
+  .assistant-meta {
+    display: grid;
+    gap: 0.25rem;
+    text-align: right;
+    color: var(--gray-600);
+    font-size: 0.875rem;
   }
 
   .card-header {
@@ -561,5 +701,10 @@
     .stats-strip { grid-template-columns: 1fr; }
     .dashboard-grid { grid-template-columns: 1fr; }
     .top-actions { flex-wrap: wrap; }
+    .assistant-item {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+    .assistant-meta { text-align: left; }
   }
 </style>

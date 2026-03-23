@@ -106,7 +106,7 @@ public class UserService implements UserDetailsService {
         return saved;
     }
 
-    public User createAccount(CreateAccountRequest request) {
+    public User createAccount(User currentUser, CreateAccountRequest request) {
         if (request.getRole() == Role.UNDERGRADUATE) {
             throw new IllegalArgumentException("Use the registration endpoint for undergraduates");
         }
@@ -115,18 +115,52 @@ public class UserService implements UserDetailsService {
             throw new RuntimeException("Email already exists");
         }
 
+        boolean currentIsHead = currentUser.getRole() == Role.DEPARTMENT_HEAD;
+        boolean currentIsAssistant = currentUser.getRole() == Role.DEPARTMENT_ASSISTANT;
+        if (!currentIsHead && !currentIsAssistant) {
+            throw new IllegalArgumentException("Only department heads or department assistants can create accounts.");
+        }
+
+        if (request.getRole() == Role.DEPARTMENT_ASSISTANT) {
+            if (!currentIsHead) {
+                throw new IllegalArgumentException("Only department heads can create department assistants.");
+            }
+            long assistantCount = userRepository.countByRoleAndManagedByDepartmentHeadId(Role.DEPARTMENT_ASSISTANT, currentUser.getId());
+            if (assistantCount >= 2) {
+                throw new IllegalArgumentException("A department head can only have up to 2 assistants.");
+            }
+        }
+
         User user = User.builder()
                 .fullName(request.getFullName())
                 .email(request.getEmail())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .role(request.getRole())
                 .phone(request.getPhone())
-                .department(request.getDepartment())
+                .department(resolveDepartment(currentUser, request))
                 .cpmNumber(request.getCpmNumber())
                 .profilePicture(request.getProfilePicture())
+                .managedByDepartmentHeadId(resolveManagingHeadId(currentUser, request.getRole()))
                 .build();
 
         return userRepository.save(user);
+    }
+
+    private String resolveDepartment(User currentUser, CreateAccountRequest request) {
+        if (request.getDepartment() != null && !request.getDepartment().trim().isEmpty()) {
+            return request.getDepartment().trim();
+        }
+        return currentUser.getDepartment();
+    }
+
+    private Long resolveManagingHeadId(User currentUser, Role targetRole) {
+        if (targetRole != Role.DEPARTMENT_ASSISTANT) {
+            return null;
+        }
+        if (currentUser.getRole() == Role.DEPARTMENT_HEAD) {
+            return currentUser.getId();
+        }
+        return currentUser.getManagedByDepartmentHeadId();
     }
 
     public User updateProfile(String email, ProfileUpdateRequest request) {
@@ -146,6 +180,16 @@ public class UserService implements UserDetailsService {
 
     public List<User> getUsersByRole(Role role) {
         return userRepository.findByRole(role);
+    }
+
+    public List<User> getDepartmentAssistants(User currentUser) {
+        Long managerId = currentUser.getRole() == Role.DEPARTMENT_HEAD
+                ? currentUser.getId()
+                : currentUser.getManagedByDepartmentHeadId();
+        if (managerId == null) {
+            return List.of();
+        }
+        return userRepository.findByRoleAndManagedByDepartmentHeadId(Role.DEPARTMENT_ASSISTANT, managerId);
     }
 
     public List<User> searchStudentsByMinGpa(String department) {

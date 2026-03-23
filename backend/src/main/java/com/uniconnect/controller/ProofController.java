@@ -40,8 +40,8 @@ public class ProofController {
     public ResponseEntity<List<ProofSubmissionResponse>> getProofsForReps(
             @AuthenticationPrincipal User user,
             @RequestParam Optional<Long> studentId) {
-        if (user.getRole() != Role.DEPARTMENT_HEAD) {
-            throw new IllegalArgumentException("Only department heads can view proofs.");
+        if (user.getRole() != Role.DEPARTMENT_HEAD && user.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException("Only department heads or assistants can view proofs.");
         }
         return ResponseEntity.ok(proofService.getProofsForReps(studentId));
     }

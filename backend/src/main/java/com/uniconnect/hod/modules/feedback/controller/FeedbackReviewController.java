@@ -3,6 +3,7 @@ package com.uniconnect.hod.modules.feedback.controller;
 import com.uniconnect.hod.common.dto.ApiResponseDTO;
 import com.uniconnect.hod.common.exception.UnauthorizedAccessException;
 import com.uniconnect.hod.modules.feedback.dto.FeedbackReviewResponseDTO;
+import com.uniconnect.model.Role;
 import com.uniconnect.model.User;
 import com.uniconnect.repository.UserRepository;
 import com.uniconnect.student.modules.feedback.entity.MentorFeedback;
@@ -62,8 +63,9 @@ public class FeedbackReviewController {
 
         User hodUser = userRepository.findByEmail(userDetails.getUsername())
                 .orElse(null);
-        if (hodUser == null || hodUser.getRole() == null || !"DEPARTMENT_HEAD".equalsIgnoreCase(hodUser.getRole().name())) {
-            throw new UnauthorizedAccessException("Only HoD (department head) users can access feedback reviews.");
+        if (hodUser == null || hodUser.getRole() == null
+                || (hodUser.getRole() != Role.DEPARTMENT_HEAD && hodUser.getRole() != Role.DEPARTMENT_ASSISTANT)) {
+            throw new UnauthorizedAccessException("Only HoD workspace users can access feedback reviews.");
         }
 
         LocalDateTime cutoff = null;
@@ -109,4 +111,3 @@ public class FeedbackReviewController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }
-

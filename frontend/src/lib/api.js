@@ -193,11 +193,16 @@ export function isAuthenticated() {
   return !!getToken();
 }
 
+export function isHodWorkspaceRole(role) {
+  return role === 'DEPARTMENT_HEAD' || role === 'DEPARTMENT_ASSISTANT';
+}
+
 export function getRoleDashboardPath(role) {
   switch (role) {
     case 'UNDERGRADUATE': return '/undergraduate/dashboard';
     case 'ACADEMIC_MENTOR': return '/academic-mentor/dashboard';
     case 'INDUSTRY_MENTOR': return '/industry-mentor/dashboard';
+    case 'DEPARTMENT_ASSISTANT': return '/hod/dashboard';
     case 'DEPARTMENT_HEAD': return '/hod/dashboard';
     default: return '/';
   }
