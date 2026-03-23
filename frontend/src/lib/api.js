@@ -21,6 +21,11 @@ function getUserRoleHeaderValue() {
   }
 }
 
+function getUserIdHeaderValue() {
+  const currentUser = getCurrentUser();
+  return currentUser?.userId || currentUser?.id || null;
+}
+
 function getCacheKey(method, path) {
   return `${method}:${path}`;
 }
@@ -68,12 +73,19 @@ async function request(method, path, body = null, options = {}) {
   if (token && !isAuthEndpoint) headers['Authorization'] = `Bearer ${token}`;
   const roleHeaderValue = getUserRoleHeaderValue();
   if (roleHeaderValue) headers['X-User-Role'] = roleHeaderValue;
+  const userIdHeaderValue = getUserIdHeaderValue();
+  if (userIdHeaderValue) headers['X-User-Id'] = String(userIdHeaderValue);
 
   const {
     signal,
     cache = method === 'GET',
-    cacheTtl = DEFAULT_GET_CACHE_TTL
+    cacheTtl = DEFAULT_GET_CACHE_TTL,
+    rawBody,
+    extraHeaders = {},
+    omitJsonContentType = false
   } = options;
+  if (omitJsonContentType) delete headers['Content-Type'];
+  Object.assign(headers, extraHeaders);
   const cacheKey = getCacheKey(method, path);
 
   if (method === 'GET' && cache) {
@@ -90,7 +102,11 @@ async function request(method, path, body = null, options = {}) {
   }
 
   const opts = { method, headers, signal };
-  if (body) opts.body = JSON.stringify(body);
+  if (rawBody !== undefined) {
+    opts.body = rawBody;
+  } else if (body) {
+    opts.body = JSON.stringify(body);
+  }
   const requestPromise = (async () => {
     const res = await fetch(`${API_BASE}${path}`, opts);
     const data = await res.json().catch(() => null);
@@ -119,7 +135,25 @@ export const api = {
   post: (path, body, options) => request('POST', path, body, options),
   put: (path, body, options) => request('PUT', path, body, options),
   delete: (path, options) => request('DELETE', path, null, options),
+  upload: (path, formData, options) => request('POST', path, null, { ...options, rawBody: formData, omitJsonContentType: true }),
 };
+
+export async function downloadWithAuth(path) {
+  const headers = {};
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const roleHeaderValue = getUserRoleHeaderValue();
+  if (roleHeaderValue) headers['X-User-Role'] = roleHeaderValue;
+  const userIdHeaderValue = getUserIdHeaderValue();
+  if (userIdHeaderValue) headers['X-User-Id'] = String(userIdHeaderValue);
+
+  const res = await fetch(`${API_BASE}${path}`, { headers });
+  if (!res.ok) {
+    const data = await res.json().catch(() => null);
+    throw { status: res.status, data };
+  }
+  return await res.blob();
+}
 
 export async function login(email, password) {
   const res = await api.post('/auth/login', { email, password });

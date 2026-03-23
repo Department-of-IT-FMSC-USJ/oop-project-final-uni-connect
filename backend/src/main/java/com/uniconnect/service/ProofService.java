@@ -11,6 +11,9 @@ import com.uniconnect.repository.ProofSubmissionRepository;
 import com.uniconnect.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -20,6 +23,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ProofService {
+    private static final String GOOGLE_DRIVE_LINK_REGEX =
+            "^(https://)?drive\\.google\\.com/.+$";
 
     private final ProofSubmissionRepository proofRepository;
     private final UserRepository userRepository;
@@ -36,22 +41,75 @@ public class ProofService {
         if (student.getRole() != Role.UNDERGRADUATE) {
             throw new IllegalArgumentException("Only undergraduates can submit proofs.");
         }
+        validateProofRequest(student, request);
 
         ProofSubmission proof = new ProofSubmission(
                 student,
-                request.getTitle(),
-                request.getDescription(),
+                request.getTitle().trim(),
+                request.getDescription() == null ? null : request.getDescription().trim(),
                 request.getEventDate(),
-                request.getProofData(),
-                request.getProofType(),
+                request.getProofData().trim(),
+                "GOOGLE_DRIVE",
                 LocalDateTime.now()
         );
-        proof.setCpm(request.getCpm());
+        proof.setCpm(resolveStudentReference(student));
         proof.setLatestCategory(request.getCategory());
         proof.setSubmissionCode(generateSubmissionCode(proof.getCreatedAt()));
 
         ProofSubmission saved = proofRepository.save(proof);
         return toResponse(saved);
+    }
+
+    private void validateProofRequest(User student, ProofSubmissionRequest request) {
+        if (request.getProofData() == null || request.getProofData().trim().isEmpty()) {
+            throw new IllegalArgumentException("Evidence link is required.");
+        }
+
+        String proofLink = request.getProofData().trim();
+        if (!isGoogleDriveLink(proofLink)) {
+            throw new IllegalArgumentException("Only Google Drive evidence links are allowed.");
+        }
+
+        if (request.getEventDate() == null) {
+            throw new IllegalArgumentException("Event date is required.");
+        }
+
+        LocalDate today = LocalDate.now();
+        LocalDate oldestAllowed = today.minusYears(2);
+        if (request.getEventDate().isAfter(today)) {
+            throw new IllegalArgumentException("Event date cannot be in the future.");
+        }
+        if (request.getEventDate().isBefore(oldestAllowed)) {
+            throw new IllegalArgumentException("Event date must be within the past two years.");
+        }
+
+        if (resolveStudentReference(student) == null) {
+            throw new IllegalArgumentException("Student registration details are required before submitting evidence.");
+        }
+    }
+
+    private String resolveStudentReference(User student) {
+        if (student.getRegistrationNumber() != null && !student.getRegistrationNumber().trim().isEmpty()) {
+            return student.getRegistrationNumber().trim();
+        }
+        if (student.getCpmNumber() != null && !student.getCpmNumber().trim().isEmpty()) {
+            return student.getCpmNumber().trim();
+        }
+        return null;
+    }
+
+    private boolean isGoogleDriveLink(String proofLink) {
+        if (!proofLink.matches(GOOGLE_DRIVE_LINK_REGEX)) {
+            return false;
+        }
+
+        try {
+            URI uri = new URI(proofLink.startsWith("http") ? proofLink : "https://" + proofLink);
+            String host = uri.getHost();
+            return host != null && host.equalsIgnoreCase("drive.google.com");
+        } catch (URISyntaxException ignored) {
+            return false;
+        }
     }
 
     public List<ProofSubmissionResponse> getProofsForStudent(User student) {

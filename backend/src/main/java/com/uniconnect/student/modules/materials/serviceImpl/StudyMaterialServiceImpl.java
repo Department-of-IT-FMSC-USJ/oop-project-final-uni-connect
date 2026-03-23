@@ -58,6 +58,7 @@ public class StudyMaterialServiceImpl implements StudyMaterialService {
         studyMaterial.setMaterialType(requestDTO.getMaterialType());
         studyMaterial.setFileUrl(fileUrl);
         studyMaterial.setUploadedBy(studentId);
+        studyMaterial.setTargetYearOfStudy(requestDTO.getTargetYearOfStudy());
 
         StudyMaterial savedMaterial = studyMaterialRepository.save(studyMaterial);
 
@@ -139,6 +140,7 @@ public class StudyMaterialServiceImpl implements StudyMaterialService {
                 .materialType(material.getMaterialType())
                 .fileUrl(material.getFileUrl())
                 .uploadedBy(material.getUploadedBy())
+                .targetYearOfStudy(material.getTargetYearOfStudy())
                 .uploadDate(material.getUploadDate())
                 .build();
     }

@@ -33,6 +33,9 @@ public class StudyMaterial {
     @Column(name = "uploaded_by", nullable = false)
     private Integer uploadedBy;
 
+    @Column(name = "target_year_of_study", length = 20)
+    private String targetYearOfStudy;
+
     @Column(name = "upload_date", nullable = false)
     private LocalDateTime uploadDate;
 
@@ -114,6 +117,14 @@ public class StudyMaterial {
         this.uploadDate = uploadDate;
     }
 
+    public String getTargetYearOfStudy() {
+        return targetYearOfStudy;
+    }
+
+    public void setTargetYearOfStudy(String targetYearOfStudy) {
+        this.targetYearOfStudy = targetYearOfStudy;
+    }
+
     @Override
     public String toString() {
         return "StudyMaterial{" +
@@ -123,6 +134,7 @@ public class StudyMaterial {
                 ", materialType=" + materialType +
                 ", fileUrl='" + fileUrl + '\'' +
                 ", uploadedBy=" + uploadedBy +
+                ", targetYearOfStudy='" + targetYearOfStudy + '\'' +
                 ", uploadDate=" + uploadDate +
                 '}';
     }

@@ -22,6 +22,9 @@ public class StudyMaterialRequestDTO {
     @NotNull(message = "Material type is required")
     private MaterialType materialType;
 
+    @NotBlank(message = "Target year is required")
+    private String targetYearOfStudy;
+
     public StudyMaterialRequestDTO() {
     }
 
@@ -57,12 +60,21 @@ public class StudyMaterialRequestDTO {
         this.materialType = materialType;
     }
 
+    public String getTargetYearOfStudy() {
+        return targetYearOfStudy;
+    }
+
+    public void setTargetYearOfStudy(String targetYearOfStudy) {
+        this.targetYearOfStudy = targetYearOfStudy;
+    }
+
     @Override
     public String toString() {
         return "StudyMaterialRequestDTO{" +
                 "title='" + title + '\'' +
                 ", description='" + description + '\'' +
                 ", materialType=" + materialType +
+                ", targetYearOfStudy='" + targetYearOfStudy + '\'' +
                 '}';
     }
 }

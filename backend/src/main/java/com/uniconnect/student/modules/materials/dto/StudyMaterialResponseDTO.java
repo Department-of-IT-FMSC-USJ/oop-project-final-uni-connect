@@ -15,6 +15,7 @@ public class StudyMaterialResponseDTO {
     private MaterialType materialType;
     private String fileUrl;
     private Integer uploadedBy;
+    private String targetYearOfStudy;
     private LocalDateTime uploadDate;
 
     public StudyMaterialResponseDTO() {
@@ -82,6 +83,14 @@ public class StudyMaterialResponseDTO {
         this.uploadedBy = uploadedBy;
     }
 
+    public String getTargetYearOfStudy() {
+        return targetYearOfStudy;
+    }
+
+    public void setTargetYearOfStudy(String targetYearOfStudy) {
+        this.targetYearOfStudy = targetYearOfStudy;
+    }
+
     public LocalDateTime getUploadDate() {
         return uploadDate;
     }
@@ -99,6 +108,7 @@ public class StudyMaterialResponseDTO {
                 ", materialType=" + materialType +
                 ", fileUrl='" + fileUrl + '\'' +
                 ", uploadedBy=" + uploadedBy +
+                ", targetYearOfStudy='" + targetYearOfStudy + '\'' +
                 ", uploadDate=" + uploadDate +
                 '}';
     }
@@ -116,6 +126,7 @@ public class StudyMaterialResponseDTO {
         private MaterialType materialType;
         private String fileUrl;
         private Integer uploadedBy;
+        private String targetYearOfStudy;
         private LocalDateTime uploadDate;
 
         public Builder materialId(Integer materialId) {
@@ -148,15 +159,22 @@ public class StudyMaterialResponseDTO {
             return this;
         }
 
+        public Builder targetYearOfStudy(String targetYearOfStudy) {
+            this.targetYearOfStudy = targetYearOfStudy;
+            return this;
+        }
+
         public Builder uploadDate(LocalDateTime uploadDate) {
             this.uploadDate = uploadDate;
             return this;
         }
 
         public StudyMaterialResponseDTO build() {
-            return new StudyMaterialResponseDTO(
+            StudyMaterialResponseDTO dto = new StudyMaterialResponseDTO(
                     materialId, title, description, materialType,
                     fileUrl, uploadedBy, uploadDate);
+            dto.setTargetYearOfStudy(targetYearOfStudy);
+            return dto;
         }
     }
 }
