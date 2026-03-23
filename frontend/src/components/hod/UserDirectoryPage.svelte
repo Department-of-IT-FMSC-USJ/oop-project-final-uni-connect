@@ -17,6 +17,7 @@
   let error = '';
   let query = '';
   let users = [];
+  let totalCount = 0;
   let selectedUser = null;
   let detailLoading = false;
   let detailError = '';
@@ -55,9 +56,11 @@
       users = users
         .filter(Boolean)
         .sort((a, b) => (a.fullName || '').localeCompare(b.fullName || ''));
+      totalCount = users.length;
     } catch (e) {
       error = `Failed to load ${isMentorMode ? 'mentors' : 'students'}.`;
       users = [];
+      totalCount = 0;
     } finally {
       loading = false;
     }
@@ -72,7 +75,7 @@
     if (!normalized) return users;
 
     return users.filter((entry) =>
-      [entry.fullName, entry.email, entry.department, entry.registrationNumber, entry.cpmNumber]
+      [entry.fullName, entry.email, entry.department, entry.registrationNumber, entry.phone]
         .filter(Boolean)
         .some((value) => value.toLowerCase().includes(normalized))
     );
@@ -115,7 +118,7 @@
         <p class="hero-copy">{description}</p>
       </div>
       <div class="hero-meta">
-        <span class="hero-count">{filteredUsers().length}</span>
+        <span class="hero-count">{totalCount}</span>
         <span class="hero-label">{isMentorMode ? 'Mentors' : 'Students'}</span>
       </div>
     </section>
@@ -125,7 +128,7 @@
         <input
           class="input search-input"
           bind:value={query}
-          placeholder={isMentorMode ? 'Search mentors by name, email, department, or CPM number' : 'Search students by name, email, registration number, or department'}
+          placeholder={isMentorMode ? 'Search mentors by name, email, department, or phone' : 'Search students by name, email, registration number, or department'}
         />
       </div>
 
@@ -146,7 +149,7 @@
                 <th>{isMentorMode ? 'Role' : 'Registration'}</th>
                 <th>Email</th>
                 <th>Department</th>
-                <th>{isMentorMode ? 'CPM Number' : 'Points'}</th>
+                <th>{isMentorMode ? 'Phone' : 'Points'}</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -167,7 +170,7 @@
                   <td>{isMentorMode ? getRoleLabel(entry.role) : (entry.registrationNumber || '-')}</td>
                   <td>{entry.email || '-'}</td>
                   <td>{entry.department || '-'}</td>
-                  <td>{isMentorMode ? (entry.cpmNumber || '-') : (entry.cumulativePoints || 0)}</td>
+                  <td>{isMentorMode ? (entry.phone || '-') : (entry.cumulativePoints || 0)}</td>
                   <td>
                     <button class="btn btn-outline btn-sm" on:click={() => viewUserProfile(entry.id)}>
                       View Profile
@@ -224,10 +227,6 @@
               <div class="detail-item">
                 <span class="detail-label">Year of Study</span>
                 <span class="detail-value">{selectedUser.yearOfStudy || '-'}</span>
-              </div>
-              <div class="detail-item">
-                <span class="detail-label">CPM Number</span>
-                <span class="detail-value">{selectedUser.cpmNumber || '-'}</span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Points</span>

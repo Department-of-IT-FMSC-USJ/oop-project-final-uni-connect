@@ -12,6 +12,7 @@
   let loading = true;
   let error = '';
   let feedbacks = [];
+  let totalCount = 0;
   let selectedFeedback = null;
   let maxRating = '';
   let minRating = '';
@@ -43,9 +44,11 @@
       const queryString = params.toString();
       const res = await api.get(`/feedback-reviews${queryString ? `?${queryString}` : ''}`, { cache: false });
       feedbacks = res.data || [];
+      totalCount = feedbacks.length;
     } catch (e) {
       error = 'Failed to load feedback records.';
       feedbacks = [];
+      totalCount = 0;
     } finally {
       loading = false;
     }
@@ -85,7 +88,7 @@
         <p class="hero-copy">Review all submitted mentor feedback, filter by rating, and inspect each comment in full.</p>
       </div>
       <div class="hero-meta">
-        <span class="hero-count">{visibleFeedbacks().length}</span>
+        <span class="hero-count">{totalCount}</span>
         <span class="hero-label">Feedback Records</span>
       </div>
     </section>

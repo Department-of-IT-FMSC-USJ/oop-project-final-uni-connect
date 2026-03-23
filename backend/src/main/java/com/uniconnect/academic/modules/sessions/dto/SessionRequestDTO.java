@@ -1,12 +1,12 @@
 package com.uniconnect.academic.modules.sessions.dto;
 
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 /**
  * DTO for mentoring session creation request.
@@ -23,7 +23,6 @@ public class SessionRequestDTO {
     @NotBlank(message = "Session type is required")
     private String sessionType;
 
-    @NotBlank(message = "Session topic is required")
     @Size(max = 200, message = "Session topic cannot exceed 200 characters")
     private String sessionTopic;
 
@@ -31,11 +30,16 @@ public class SessionRequestDTO {
     private String sessionDescription;
 
     @NotNull(message = "Session date is required")
-    @Future(message = "Session date must be a future date")
     private LocalDate sessionDate;
 
     @NotNull(message = "Session time is required")
     private LocalTime sessionTime;
+
+    private String audienceMode;
+
+    private String targetYearOfStudy;
+
+    private List<Integer> targetStudentIds;
 
     public SessionRequestDTO() {
     }
@@ -110,6 +114,30 @@ public class SessionRequestDTO {
         this.sessionTime = sessionTime;
     }
 
+    public String getAudienceMode() {
+        return audienceMode;
+    }
+
+    public void setAudienceMode(String audienceMode) {
+        this.audienceMode = audienceMode;
+    }
+
+    public String getTargetYearOfStudy() {
+        return targetYearOfStudy;
+    }
+
+    public void setTargetYearOfStudy(String targetYearOfStudy) {
+        this.targetYearOfStudy = targetYearOfStudy;
+    }
+
+    public List<Integer> getTargetStudentIds() {
+        return targetStudentIds;
+    }
+
+    public void setTargetStudentIds(List<Integer> targetStudentIds) {
+        this.targetStudentIds = targetStudentIds;
+    }
+
     @Override
     public String toString() {
         return "SessionRequestDTO{" +
@@ -120,6 +148,9 @@ public class SessionRequestDTO {
                 ", sessionDescription='" + sessionDescription + '\'' +
                 ", sessionDate=" + sessionDate +
                 ", sessionTime=" + sessionTime +
+                ", audienceMode='" + audienceMode + '\'' +
+                ", targetYearOfStudy='" + targetYearOfStudy + '\'' +
+                ", targetStudentIds=" + targetStudentIds +
                 '}';
     }
 }

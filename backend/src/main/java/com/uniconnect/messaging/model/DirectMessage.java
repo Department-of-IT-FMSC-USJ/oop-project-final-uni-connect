@@ -24,6 +24,9 @@ public class DirectMessage {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+
     @PrePersist
     protected void onCreate() {
       this.createdAt = LocalDateTime.now();
@@ -67,5 +70,13 @@ public class DirectMessage {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getReadAt() {
+        return readAt;
+    }
+
+    public void setReadAt(LocalDateTime readAt) {
+        this.readAt = readAt;
     }
 }

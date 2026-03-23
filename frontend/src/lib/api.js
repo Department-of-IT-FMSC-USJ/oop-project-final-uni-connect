@@ -168,3 +168,9 @@ export function getRoleDashboardPath(role) {
     default: return '/';
   }
 }
+
+export function emitMessagesUpdated() {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('messages:updated'));
+  }
+}

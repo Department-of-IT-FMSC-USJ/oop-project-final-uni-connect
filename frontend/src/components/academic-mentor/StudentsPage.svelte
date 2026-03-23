@@ -11,10 +11,12 @@
   let error = '';
   let query = '';
   let selectedContact = null;
+  let initialContactId = null;
 
   onMount(async () => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'ACADEMIC_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
+    initialContactId = new URLSearchParams(window.location.search).get('contact');
 
     try {
       const mentorId = user.userId || user.id;
@@ -31,6 +33,9 @@
         })
       );
       students = detailedStudents;
+      if (initialContactId) {
+        selectedContact = students.find((student) => String(student.id || student.studentId) === initialContactId) || null;
+      }
     } catch (e) {
       error = 'Failed to load assigned students.';
     } finally {

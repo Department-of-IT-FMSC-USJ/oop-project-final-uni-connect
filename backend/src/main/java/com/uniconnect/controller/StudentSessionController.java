@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/student-sessions")
@@ -60,6 +62,8 @@ public class StudentSessionController {
 
             if (mentor.getRole() == Role.ACADEMIC_MENTOR) {
                 academicSessionRepository.findByMentorIdOrderBySessionDateDescSessionTimeDesc(connection.getMentorId())
+                        .stream()
+                        .filter(session -> isStudentTargeted(studentId, session.getTargetStudentIds()))
                         .forEach(session -> responses.add(new StudentMentorSessionResponse(
                                 session.getSessionId(),
                                 session.getMentorId(),
@@ -69,6 +73,7 @@ public class StudentSessionController {
                                 session.getSessionType().name(),
                                 session.getSessionTopic(),
                                 session.getSessionDescription(),
+                                session.getAudienceMode(),
                                 session.getSessionDate(),
                                 session.getSessionTime()
                         )));
@@ -76,6 +81,8 @@ public class StudentSessionController {
 
             if (mentor.getRole() == Role.INDUSTRY_MENTOR) {
                 industrySessionRepository.findByMentorIdOrderBySessionDateDescSessionTimeDesc(connection.getMentorId())
+                        .stream()
+                        .filter(session -> isStudentTargeted(studentId, session.getTargetStudentIds()))
                         .forEach(session -> responses.add(new StudentMentorSessionResponse(
                                 session.getSessionId(),
                                 session.getMentorId(),
@@ -85,6 +92,7 @@ public class StudentSessionController {
                                 session.getSessionType().name(),
                                 session.getSessionTopic(),
                                 session.getSessionDescription(),
+                                session.getAudienceMode(),
                                 session.getSessionDate(),
                                 session.getSessionTime()
                         )));
@@ -96,5 +104,18 @@ public class StudentSessionController {
                 .thenComparing(StudentMentorSessionResponse::getSessionTime, Comparator.nullsLast(Comparator.naturalOrder())));
 
         return ResponseEntity.ok(responses);
+    }
+
+    private boolean isStudentTargeted(Integer studentId, String targetStudentIds) {
+        if (targetStudentIds == null || targetStudentIds.isBlank()) {
+            return true;
+        }
+
+        Set<Integer> parsedIds = java.util.Arrays.stream(targetStudentIds.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .map(Integer::valueOf)
+                .collect(Collectors.toSet());
+        return parsedIds.contains(studentId);
     }
 }

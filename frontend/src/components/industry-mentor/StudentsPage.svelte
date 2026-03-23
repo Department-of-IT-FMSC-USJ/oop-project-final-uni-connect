@@ -10,10 +10,12 @@
   let loading = true;
   let error = '';
   let selectedContact = null;
+  let initialContactId = null;
 
   onMount(async () => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'INDUSTRY_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
+    initialContactId = new URLSearchParams(window.location.search).get('contact');
 
     try {
       const connectionsRes = await api.get(`/mentor/mentor/${user.userId || user.id}`, { cache: false });
@@ -22,6 +24,9 @@
         const res = await api.get(`/users/${entry.studentId}`, { cache: false });
         return res.data || entry;
       }));
+      if (initialContactId) {
+        selectedContact = students.find((student) => String(student.id || student.studentId) === initialContactId) || null;
+      }
     } catch (e) {
       error = 'Failed to load connected students.';
     } finally {

@@ -12,10 +12,12 @@
   let sessions = [];
   let selectedContact = null;
   let selectedSession = null;
+  let initialContactId = null;
 
   onMount(async () => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'UNDERGRADUATE') { window.location.href = getRoleDashboardPath(user.role); return; }
+    initialContactId = new URLSearchParams(window.location.search).get('contact');
 
     try {
       const profile = await api.get('/users/profile', { cache: false });
@@ -27,6 +29,9 @@
         const res = await api.get(`/users/${connection.mentorId}`, { cache: false });
         return { ...(res.data || {}), mentorType: connection.mentorType };
       }));
+      if (initialContactId) {
+        selectedContact = mentors.find((mentor) => String(mentor.id || mentor.userId) === initialContactId) || null;
+      }
 
       sessions = await api.get(`/student-sessions/${user.userId || user.id}`, { cache: false });
     } catch (e) {

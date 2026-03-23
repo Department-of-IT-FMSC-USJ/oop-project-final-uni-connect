@@ -6,23 +6,29 @@
 
   let user = getCurrentUser();
   let sessions = [];
+  let students = [];
   let loading = true;
   let error = '';
   let showCreate = false;
-  let form = {
-    sessionTitle: '',
-    sessionType: 'GROUP',
-    sessionTopic: '',
-    sessionDescription: '',
-    sessionDate: '',
-    sessionTime: ''
-  };
+  let form = initialForm();
 
   onMount(async () => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'ACADEMIC_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
-    await loadSessions();
+    await Promise.all([loadSessions(), loadStudents()]);
   });
+
+  function initialForm() {
+    return {
+      sessionTopic: '',
+      sessionType: 'ALL_ASSIGNED',
+      targetYearOfStudy: '',
+      targetStudentIds: [],
+      sessionDescription: '',
+      sessionDate: '',
+      sessionTime: ''
+    };
+  }
 
   async function loadSessions() {
     loading = true;
@@ -37,20 +43,120 @@
     }
   }
 
+  async function loadStudents() {
+    try {
+      const mentorId = user.userId || user.id;
+      const allocData = await api.get(`/allocations/mentor/${mentorId}`, { cache: false });
+      const allocations = allocData.data || [];
+      students = await Promise.all(
+        allocations.map(async (alloc) => {
+          const res = await api.get(`/users/${alloc.studentId}`, { cache: false });
+          return { ...alloc, ...(res.data || {}) };
+        })
+      );
+    } catch (e) {
+      error = e?.data?.message || 'Failed to load assigned students.';
+    }
+  }
+
+  function todayDate() {
+    return new Date().toISOString().split('T')[0];
+  }
+
+  function minTimeForSelectedDate(dateValue) {
+    if (dateValue !== todayDate()) return null;
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  }
+
+  function validateFutureDateTime() {
+    if (!form.sessionDate || !form.sessionTime) return 'Date and time are required.';
+    const scheduled = new Date(`${form.sessionDate}T${form.sessionTime}`);
+    if (Number.isNaN(scheduled.getTime()) || scheduled <= new Date()) {
+      return 'Session date and time must be in the future.';
+    }
+    return '';
+  }
+
+  function toggleStudent(studentId) {
+    if (form.targetStudentIds.includes(studentId)) {
+      form.targetStudentIds = form.targetStudentIds.filter((id) => id !== studentId);
+      return;
+    }
+    form.targetStudentIds = [...form.targetStudentIds, studentId];
+  }
+
+  function normalizedPayload() {
+    const isOneToOne = form.sessionType === 'ONE_TO_ONE';
+    const isYearGroup = form.sessionType === 'YEAR';
+    const isCustomGroup = form.sessionType === 'CUSTOM';
+    const targetStudentIds = isOneToOne
+      ? form.targetStudentIds.slice(0, 1)
+      : isCustomGroup
+        ? form.targetStudentIds
+        : [];
+
+    return {
+      mentorId: user.userId || user.id,
+      sessionTitle: form.sessionTopic.trim(),
+      sessionTopic: form.sessionTopic.trim(),
+      sessionType: isOneToOne ? 'ONE_TO_ONE' : 'GROUP',
+      audienceMode: isOneToOne ? 'ONE_TO_ONE' : isYearGroup ? 'YEAR' : isCustomGroup ? 'CUSTOM' : 'ALL_ASSIGNED',
+      targetYearOfStudy: isYearGroup ? form.targetYearOfStudy : '',
+      targetStudentIds,
+      sessionDescription: form.sessionDescription.trim(),
+      sessionDate: form.sessionDate,
+      sessionTime: form.sessionTime
+    };
+  }
+
   async function createSession() {
     error = '';
+
+    if (!form.sessionTopic.trim()) {
+      error = 'Topic is required.';
+      return;
+    }
+
+    const futureError = validateFutureDateTime();
+    if (futureError) {
+      error = futureError;
+      return;
+    }
+
+    if (form.sessionType === 'ONE_TO_ONE' && form.targetStudentIds.length !== 1) {
+      error = 'Select exactly one student for a one-to-one session.';
+      return;
+    }
+
+    if (form.sessionType === 'YEAR' && !form.targetYearOfStudy) {
+      error = 'Select a year for this group session.';
+      return;
+    }
+
+    if (form.sessionType === 'CUSTOM' && form.targetStudentIds.length === 0) {
+      error = 'Select at least one student for a custom group session.';
+      return;
+    }
+
     try {
-      await api.post('/academic/sessions', {
-        mentorId: user.userId || user.id,
-        ...form
-      });
-      form = { sessionTitle: '', sessionType: 'GROUP', sessionTopic: '', sessionDescription: '', sessionDate: '', sessionTime: '' };
+      await api.post('/academic/sessions', normalizedPayload());
+      form = initialForm();
       showCreate = false;
       await loadSessions();
     } catch (e) {
       error = e?.data?.message || 'Failed to create session.';
     }
   }
+
+  function sessionAudienceLabel(session) {
+    if (session.sessionType === 'ONE_TO_ONE' || session.audienceMode === 'ONE_TO_ONE') return 'One student';
+    if (session.audienceMode === 'YEAR') return `Year ${session.targetYearOfStudy || '-'}`;
+    if (session.audienceMode === 'CUSTOM') return 'Custom student group';
+    return 'All assigned students';
+  }
+
+  const yearOptions = () => [...new Set(students.map((student) => student.yearOfStudy).filter(Boolean))];
 </script>
 
 <DashboardLayout navItems={academicMentorNavItems} activeItem="sessions" pageTitle="Sessions">
@@ -59,7 +165,7 @@
       <div>
         <p class="eyebrow">Academic Mentor</p>
         <h2>Mentor-Created Sessions</h2>
-        <p class="hero-copy">Create sessions for your assigned students. Undergraduates can view and join these sessions, but they cannot create them.</p>
+        <p class="hero-copy">Create one-to-one or group sessions for assigned students. Undergraduates only see sessions targeted to them.</p>
       </div>
       <button class="btn btn-primary" on:click={() => showCreate = true}>Create Session</button>
     </section>
@@ -79,11 +185,11 @@
             <article class="session-card">
               <div>
                 <h3>{session.sessionTitle}</h3>
-                <p class="muted">{session.sessionTopic}</p>
-                <p class="copy">{session.sessionDescription || 'No description provided.'}</p>
+                <p class="muted">{session.sessionDescription || 'No description provided.'}</p>
               </div>
               <div class="session-meta">
-                <span class="badge badge-info">{session.sessionType}</span>
+                <span class="badge badge-info">{session.sessionType === 'ONE_TO_ONE' ? 'One to one' : 'Group'}</span>
+                <span class="badge badge-soft">{sessionAudienceLabel(session)}</span>
                 <strong>{session.sessionDate} at {session.sessionTime}</strong>
               </div>
             </article>
@@ -98,32 +204,69 @@
       <div class="modal-content">
         <h2>Create Academic Session</h2>
         <div class="form-grid">
-          <div class="form-group">
-            <label>Title</label>
-            <input class="input" bind:value={form.sessionTitle} />
+          <div class="form-group full-width">
+            <label for="academic-topic">Topic</label>
+            <input id="academic-topic" class="input" bind:value={form.sessionTopic} placeholder="Career planning for Year 2 students" />
           </div>
           <div class="form-group">
-            <label>Type</label>
-            <select class="input" bind:value={form.sessionType}>
-              <option value="GROUP">Group</option>
+            <label for="academic-type">Session Type</label>
+            <select id="academic-type" class="input" bind:value={form.sessionType}>
               <option value="ONE_TO_ONE">One To One</option>
+              <option value="ALL_ASSIGNED">All Assigned Students</option>
+              <option value="YEAR">All Students in One Year</option>
+              <option value="CUSTOM">Custom Student List</option>
             </select>
           </div>
+
+          {#if form.sessionType === 'YEAR'}
+            <div class="form-group full-width">
+              <label for="academic-year">Year</label>
+              <select id="academic-year" class="input" bind:value={form.targetYearOfStudy}>
+                <option value="">Select year</option>
+                {#each yearOptions() as year}
+                  <option value={year}>Year {year}</option>
+                {/each}
+              </select>
+            </div>
+          {/if}
+
+          {#if form.sessionType === 'ONE_TO_ONE' || form.sessionType === 'CUSTOM'}
+            <div class="form-group full-width">
+              <label>{form.sessionType === 'ONE_TO_ONE' ? 'Student' : 'Custom Student List'}</label>
+              <div class="student-picker">
+                {#each students as student}
+                  <label class="student-option">
+                    <input
+                      type={form.sessionType === 'ONE_TO_ONE' ? 'radio' : 'checkbox'}
+                      name="academic-target-student"
+                      checked={form.targetStudentIds.includes(student.id || student.studentId)}
+                      on:change={() => {
+                        const studentId = student.id || student.studentId;
+                        form.targetStudentIds = form.sessionType === 'ONE_TO_ONE'
+                          ? [studentId]
+                          : form.targetStudentIds.includes(studentId)
+                            ? form.targetStudentIds.filter((id) => id !== studentId)
+                            : [...form.targetStudentIds, studentId];
+                      }}
+                    />
+                    <span>{student.fullName || student.studentName} • Year {student.yearOfStudy || student.academicYear || '-'}</span>
+                  </label>
+                {/each}
+              </div>
+            </div>
+          {/if}
+
           <div class="form-group full-width">
-            <label>Topic</label>
-            <input class="input" bind:value={form.sessionTopic} />
-          </div>
-          <div class="form-group full-width">
-            <label>Description</label>
-            <textarea class="input" rows="4" bind:value={form.sessionDescription}></textarea>
+            <label for="academic-description">Description</label>
+            <textarea id="academic-description" class="input" rows="4" bind:value={form.sessionDescription}></textarea>
           </div>
           <div class="form-group">
-            <label>Date</label>
-            <input type="date" class="input" bind:value={form.sessionDate} />
+            <label for="academic-date">Date</label>
+            <input id="academic-date" type="date" class="input" bind:value={form.sessionDate} min={todayDate()} />
           </div>
           <div class="form-group">
-            <label>Time</label>
-            <input type="time" class="input" bind:value={form.sessionTime} />
+            <label for="academic-time">Time</label>
+            <input id="academic-time" type="time" class="input" bind:value={form.sessionTime} min={minTimeForSelectedDate(form.sessionDate)} />
           </div>
         </div>
         <div class="modal-actions">
@@ -142,8 +285,7 @@
   .hero-copy, .muted { color: var(--gray-600); }
   .session-list { display: grid; gap: 1rem; }
   .session-card { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1rem; display: flex; justify-content: space-between; gap: 1rem; }
-  .session-meta { display: grid; gap: 0.6rem; text-align: right; min-width: 180px; }
-  .copy { margin-top: 0.5rem; color: var(--gray-700); }
+  .session-meta { display: grid; gap: 0.6rem; text-align: right; min-width: 220px; }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
   .full-width { grid-column: 1 / -1; }
   .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--gray-600); }
@@ -151,4 +293,7 @@
   .empty-state { color: var(--gray-500); padding: 1rem 0; }
   .alert { padding: 0.8rem 1rem; border-radius: var(--radius); margin-bottom: 1rem; }
   .alert-error { background: #fee2e2; color: #991b1b; }
+  .badge-soft { background: var(--gray-100); color: var(--gray-700); }
+  .student-picker { max-height: 220px; overflow-y: auto; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 0.75rem; display: grid; gap: 0.65rem; }
+  .student-option { display: flex; gap: 0.6rem; align-items: center; color: var(--gray-700); }
 </style>

@@ -9,6 +9,8 @@ import com.uniconnect.academic.modules.sessions.repository.MentoringSessionRepos
 import com.uniconnect.academic.modules.sessions.service.MentoringSessionService;
 import com.uniconnect.academic.modules.allocations.repository.StudentAllocationRepository;
 import com.uniconnect.academic.modules.allocations.entity.StudentAllocation;
+import com.uniconnect.model.User;
+import com.uniconnect.repository.UserRepository;
 import com.uniconnect.student.modules.feedback.entity.MentorSession;
 import com.uniconnect.student.modules.feedback.enums.SessionStatus;
 import com.uniconnect.student.modules.feedback.repository.MentorSessionRepository;
@@ -19,7 +21,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -33,17 +37,20 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
     private final StudentAllocationRepository studentAllocationRepository;
     private final MentorConnectionRepository mentorConnectionRepository;
     private final MentorSessionRepository mentorSessionRepository;
+    private final UserRepository userRepository;
 
     public MentoringSessionServiceImpl(
             MentoringSessionRepository mentoringSessionRepository,
             StudentAllocationRepository studentAllocationRepository,
             MentorConnectionRepository mentorConnectionRepository,
-            MentorSessionRepository mentorSessionRepository
+            MentorSessionRepository mentorSessionRepository,
+            UserRepository userRepository
     ) {
         this.mentoringSessionRepository = mentoringSessionRepository;
         this.studentAllocationRepository = studentAllocationRepository;
         this.mentorConnectionRepository = mentorConnectionRepository;
         this.mentorSessionRepository = mentorSessionRepository;
+        this.userRepository = userRepository;
     }
 
     /**
@@ -52,6 +59,10 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
      */
     @Override
     public SessionResponseDTO createSession(SessionRequestDTO requestDTO) {
+        LocalDateTime scheduledAt = LocalDateTime.of(requestDTO.getSessionDate(), requestDTO.getSessionTime());
+        if (!scheduledAt.isAfter(LocalDateTime.now())) {
+            throw new IllegalArgumentException("Session date and time must be in the future.");
+        }
 
         // Prevent duplicate sessions at the same date and time
         if (mentoringSessionRepository.existsByMentorIdAndSessionDateAndSessionTime(
@@ -70,25 +81,108 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
                     ". Must be ONE_TO_ONE or GROUP.");
         }
 
+        List<StudentAllocation> allocations =
+                studentAllocationRepository.findByMentorIdOrderByAllocationDateDesc(requestDTO.getMentorId());
+        Set<Integer> availableStudentIds = allocations.stream()
+                .map(StudentAllocation::getStudentId)
+                .filter(java.util.Objects::nonNull)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        Targeting targeting = resolveTargeting(requestDTO, sessionType, allocations, availableStudentIds);
+        String sessionTopic = requestDTO.getSessionTopic() == null || requestDTO.getSessionTopic().trim().isEmpty()
+                ? requestDTO.getSessionTitle().trim()
+                : requestDTO.getSessionTopic().trim();
+
         // Create and save the session
         MentoringSession session = new MentoringSession();
         session.setMentorId(requestDTO.getMentorId());
-        session.setSessionTitle(requestDTO.getSessionTitle());
+        session.setSessionTitle(requestDTO.getSessionTitle().trim());
         session.setSessionType(sessionType);
-        session.setSessionTopic(requestDTO.getSessionTopic());
+        session.setSessionTopic(sessionTopic);
         session.setSessionDescription(requestDTO.getSessionDescription());
+        session.setAudienceMode(targeting.audienceMode());
+        session.setTargetYearOfStudy(targeting.targetYearOfStudy());
+        session.setTargetStudentIds(targeting.targetStudentIdsCsv());
         session.setSessionDate(requestDTO.getSessionDate());
         session.setSessionTime(requestDTO.getSessionTime());
 
         MentoringSession savedSession = mentoringSessionRepository.save(session);
 
         // Provision per-student feedback sessions for this academic mentor.
-        provisionMentorSessions(savedSession);
+        provisionMentorSessions(savedSession, targeting.targetStudentIds());
 
         return mapToResponseDTO(savedSession);
     }
 
-    private void provisionMentorSessions(MentoringSession savedSession) {
+    private Targeting resolveTargeting(
+            SessionRequestDTO requestDTO,
+            SessionType sessionType,
+            List<StudentAllocation> allocations,
+            Set<Integer> availableStudentIds
+    ) {
+        List<Integer> requestedStudentIds = requestDTO.getTargetStudentIds() == null
+                ? List.of()
+                : requestDTO.getTargetStudentIds().stream()
+                        .filter(java.util.Objects::nonNull)
+                        .distinct()
+                        .toList();
+
+        if (sessionType == SessionType.ONE_TO_ONE) {
+            if (requestedStudentIds.size() != 1) {
+                throw new IllegalArgumentException("One-to-one sessions must target exactly one student.");
+            }
+            Integer studentId = requestedStudentIds.get(0);
+            if (!availableStudentIds.contains(studentId)) {
+                throw new IllegalArgumentException("Selected student is not assigned to this mentor.");
+            }
+            return new Targeting("ONE_TO_ONE", null, studentIdsToCsv(List.of(studentId)), List.of(studentId));
+        }
+
+        String audienceMode = requestDTO.getAudienceMode() == null || requestDTO.getAudienceMode().trim().isEmpty()
+                ? "ALL_ASSIGNED"
+                : requestDTO.getAudienceMode().trim().toUpperCase();
+
+        return switch (audienceMode) {
+            case "ALL_ASSIGNED" -> new Targeting(
+                    "ALL_ASSIGNED",
+                    null,
+                    studentIdsToCsv(availableStudentIds.stream().toList()),
+                    availableStudentIds.stream().toList()
+            );
+            case "YEAR" -> {
+                String year = requestDTO.getTargetYearOfStudy();
+                if (year == null || year.trim().isEmpty()) {
+                    throw new IllegalArgumentException("Group sessions by year require a year selection.");
+                }
+                List<Integer> yearStudentIds = allocations.stream()
+                        .filter(allocation -> allocation.getStudentId() != null)
+                        .filter(allocation -> {
+                            User student = userRepository.findById(allocation.getStudentId().longValue()).orElse(null);
+                            return student != null && year.trim().equalsIgnoreCase(student.getYearOfStudy());
+                        })
+                        .map(StudentAllocation::getStudentId)
+                        .distinct()
+                        .toList();
+                if (yearStudentIds.isEmpty()) {
+                    throw new IllegalArgumentException("No assigned students found for the selected year.");
+                }
+                yield new Targeting("YEAR", year.trim(), studentIdsToCsv(yearStudentIds), yearStudentIds);
+            }
+            case "CUSTOM" -> {
+                if (requestedStudentIds.isEmpty()) {
+                    throw new IllegalArgumentException("Custom group sessions require at least one student.");
+                }
+                boolean invalidStudent = requestedStudentIds.stream().anyMatch(id -> !availableStudentIds.contains(id));
+                if (invalidStudent) {
+                    throw new IllegalArgumentException("Custom group contains students not assigned to this mentor.");
+                }
+                yield new Targeting("CUSTOM", null, studentIdsToCsv(requestedStudentIds), requestedStudentIds);
+            }
+            default -> throw new IllegalArgumentException("Invalid audience mode: " + audienceMode);
+        };
+    }
+
+    private void provisionMentorSessions(MentoringSession savedSession, List<Integer> targetStudentIds) {
         Integer mentorId = savedSession.getMentorId();
         if (mentorId == null) return;
 
@@ -101,6 +195,7 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
         for (StudentAllocation allocation : allocations) {
             Integer studentId = allocation.getStudentId();
             if (studentId == null) continue;
+            if (targetStudentIds != null && !targetStudentIds.contains(studentId)) continue;
 
             Optional<com.uniconnect.student.modules.mentor.entity.MentorConnection> connectionOpt =
                     mentorConnectionRepository.findByStudentIdAndMentorIdAndMentorTypeAndConnectionStatus(
@@ -146,9 +241,19 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
                 .sessionType(session.getSessionType().name())
                 .sessionTopic(session.getSessionTopic())
                 .sessionDescription(session.getSessionDescription())
+                .audienceMode(session.getAudienceMode())
+                .targetYearOfStudy(session.getTargetYearOfStudy())
+                .targetStudentIds(session.getTargetStudentIds())
                 .sessionDate(session.getSessionDate())
                 .sessionTime(session.getSessionTime())
                 .createdAt(session.getCreatedAt())
                 .build();
+    }
+
+    private String studentIdsToCsv(List<Integer> studentIds) {
+        return studentIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    private record Targeting(String audienceMode, String targetYearOfStudy, String targetStudentIdsCsv, List<Integer> targetStudentIds) {
     }
 }

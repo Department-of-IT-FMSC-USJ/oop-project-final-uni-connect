@@ -35,6 +35,15 @@ public class MentoringSession {
     @Column(name = "session_description", columnDefinition = "TEXT")
     private String sessionDescription;
 
+    @Column(name = "audience_mode", length = 30)
+    private String audienceMode;
+
+    @Column(name = "target_year_of_study", length = 20)
+    private String targetYearOfStudy;
+
+    @Column(name = "target_student_ids", columnDefinition = "TEXT")
+    private String targetStudentIds;
+
     @Column(name = "session_date", nullable = false)
     private LocalDate sessionDate;
 
@@ -116,6 +125,30 @@ public class MentoringSession {
         this.sessionDescription = sessionDescription;
     }
 
+    public String getAudienceMode() {
+        return audienceMode;
+    }
+
+    public void setAudienceMode(String audienceMode) {
+        this.audienceMode = audienceMode;
+    }
+
+    public String getTargetYearOfStudy() {
+        return targetYearOfStudy;
+    }
+
+    public void setTargetYearOfStudy(String targetYearOfStudy) {
+        this.targetYearOfStudy = targetYearOfStudy;
+    }
+
+    public String getTargetStudentIds() {
+        return targetStudentIds;
+    }
+
+    public void setTargetStudentIds(String targetStudentIds) {
+        this.targetStudentIds = targetStudentIds;
+    }
+
     public LocalDate getSessionDate() {
         return sessionDate;
     }
@@ -149,6 +182,9 @@ public class MentoringSession {
                 ", sessionType=" + sessionType +
                 ", sessionTopic='" + sessionTopic + '\'' +
                 ", sessionDescription='" + sessionDescription + '\'' +
+                ", audienceMode='" + audienceMode + '\'' +
+                ", targetYearOfStudy='" + targetYearOfStudy + '\'' +
+                ", targetStudentIds='" + targetStudentIds + '\'' +
                 ", sessionDate=" + sessionDate +
                 ", sessionTime=" + sessionTime +
                 ", createdAt=" + createdAt +

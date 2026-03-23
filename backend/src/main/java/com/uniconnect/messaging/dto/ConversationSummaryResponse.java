@@ -12,9 +12,10 @@ public class ConversationSummaryResponse {
     private Role role;
     private String lastMessage;
     private LocalDateTime lastMessageAt;
+    private long unreadCount;
 
     public ConversationSummaryResponse(Long userId, String fullName, String email, String department,
-                                       Role role, String lastMessage, LocalDateTime lastMessageAt) {
+                                       Role role, String lastMessage, LocalDateTime lastMessageAt, long unreadCount) {
         this.userId = userId;
         this.fullName = fullName;
         this.email = email;
@@ -22,6 +23,7 @@ public class ConversationSummaryResponse {
         this.role = role;
         this.lastMessage = lastMessage;
         this.lastMessageAt = lastMessageAt;
+        this.unreadCount = unreadCount;
     }
 
     public Long getUserId() { return userId; }
@@ -31,4 +33,5 @@ public class ConversationSummaryResponse {
     public Role getRole() { return role; }
     public String getLastMessage() { return lastMessage; }
     public LocalDateTime getLastMessageAt() { return lastMessageAt; }
+    public long getUnreadCount() { return unreadCount; }
 }

@@ -12,6 +12,9 @@ public class SessionResponseDTO {
     private String sessionType;
     private String sessionTopic;
     private String sessionDescription;
+    private String audienceMode;
+    private String targetYearOfStudy;
+    private String targetStudentIds;
     private LocalDate sessionDate;
     private LocalTime sessionTime;
     private LocalDateTime createdDate;
@@ -32,6 +35,24 @@ public class SessionResponseDTO {
         this.createdDate = createdDate;
     }
 
+    public SessionResponseDTO(Integer sessionId, Integer mentorId, String sessionTitle,
+                              String sessionType, String sessionTopic, String sessionDescription,
+                              String audienceMode, String targetYearOfStudy, String targetStudentIds,
+                              LocalDate sessionDate, LocalTime sessionTime, LocalDateTime createdDate) {
+        this.sessionId = sessionId;
+        this.mentorId = mentorId;
+        this.sessionTitle = sessionTitle;
+        this.sessionType = sessionType;
+        this.sessionTopic = sessionTopic;
+        this.sessionDescription = sessionDescription;
+        this.audienceMode = audienceMode;
+        this.targetYearOfStudy = targetYearOfStudy;
+        this.targetStudentIds = targetStudentIds;
+        this.sessionDate = sessionDate;
+        this.sessionTime = sessionTime;
+        this.createdDate = createdDate;
+    }
+
     public Integer getSessionId() { return sessionId; }
     public void setSessionId(Integer sessionId) { this.sessionId = sessionId; }
     public Integer getMentorId() { return mentorId; }
@@ -44,6 +65,12 @@ public class SessionResponseDTO {
     public void setSessionTopic(String sessionTopic) { this.sessionTopic = sessionTopic; }
     public String getSessionDescription() { return sessionDescription; }
     public void setSessionDescription(String sessionDescription) { this.sessionDescription = sessionDescription; }
+    public String getAudienceMode() { return audienceMode; }
+    public void setAudienceMode(String audienceMode) { this.audienceMode = audienceMode; }
+    public String getTargetYearOfStudy() { return targetYearOfStudy; }
+    public void setTargetYearOfStudy(String targetYearOfStudy) { this.targetYearOfStudy = targetYearOfStudy; }
+    public String getTargetStudentIds() { return targetStudentIds; }
+    public void setTargetStudentIds(String targetStudentIds) { this.targetStudentIds = targetStudentIds; }
     public LocalDate getSessionDate() { return sessionDate; }
     public void setSessionDate(LocalDate sessionDate) { this.sessionDate = sessionDate; }
     public LocalTime getSessionTime() { return sessionTime; }
@@ -60,6 +87,9 @@ public class SessionResponseDTO {
         private String sessionType;
         private String sessionTopic;
         private String sessionDescription;
+        private String audienceMode;
+        private String targetYearOfStudy;
+        private String targetStudentIds;
         private LocalDate sessionDate;
         private LocalTime sessionTime;
         private LocalDateTime createdDate;
@@ -70,13 +100,28 @@ public class SessionResponseDTO {
         public Builder sessionType(String sessionType) { this.sessionType = sessionType; return this; }
         public Builder sessionTopic(String sessionTopic) { this.sessionTopic = sessionTopic; return this; }
         public Builder sessionDescription(String sessionDescription) { this.sessionDescription = sessionDescription; return this; }
+        public Builder audienceMode(String audienceMode) { this.audienceMode = audienceMode; return this; }
+        public Builder targetYearOfStudy(String targetYearOfStudy) { this.targetYearOfStudy = targetYearOfStudy; return this; }
+        public Builder targetStudentIds(String targetStudentIds) { this.targetStudentIds = targetStudentIds; return this; }
         public Builder sessionDate(LocalDate sessionDate) { this.sessionDate = sessionDate; return this; }
         public Builder sessionTime(LocalTime sessionTime) { this.sessionTime = sessionTime; return this; }
         public Builder createdDate(LocalDateTime createdDate) { this.createdDate = createdDate; return this; }
 
         public SessionResponseDTO build() {
-            return new SessionResponseDTO(sessionId, mentorId, sessionTitle, sessionType,
-                    sessionTopic, sessionDescription, sessionDate, sessionTime, createdDate);
+            return new SessionResponseDTO(
+                    sessionId,
+                    mentorId,
+                    sessionTitle,
+                    sessionType,
+                    sessionTopic,
+                    sessionDescription,
+                    audienceMode,
+                    targetYearOfStudy,
+                    targetStudentIds,
+                    sessionDate,
+                    sessionTime,
+                    createdDate
+            );
         }
     }
 }

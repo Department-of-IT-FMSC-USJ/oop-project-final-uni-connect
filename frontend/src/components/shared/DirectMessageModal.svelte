@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import { api, getCurrentUser } from '../../lib/api.js';
+  import { api, getCurrentUser, emitMessagesUpdated } from '../../lib/api.js';
 
   export let contact = null;
   export let onClose = () => {};
@@ -11,9 +11,38 @@
   let error = '';
   let messages = [];
   let draft = '';
+  let usingLocalFallback = false;
+
+  function getContactId() {
+    return contact?.id || contact?.userId || null;
+  }
+
+  function getStorageKey() {
+    const currentUserId = currentUser?.id || currentUser?.userId;
+    const otherUserId = getContactId();
+    if (!currentUserId || !otherUserId) return null;
+    const [first, second] = [currentUserId, otherUserId].sort((a, b) => Number(a) - Number(b));
+    return `direct-messages:${first}:${second}`;
+  }
+
+  function loadLocalMessages() {
+    const key = getStorageKey();
+    if (!key || typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(key) || '[]');
+    } catch {
+      return [];
+    }
+  }
+
+  function saveLocalMessages(nextMessages) {
+    const key = getStorageKey();
+    if (!key || typeof window === 'undefined') return;
+    localStorage.setItem(key, JSON.stringify(nextMessages));
+  }
 
   onMount(() => {
-    if (contact?.id) {
+    if (getContactId()) {
       loadConversation();
     }
   });
@@ -22,10 +51,18 @@
     loading = true;
     error = '';
     try {
-      messages = await api.get(`/messages/with/${contact.id}`, { cache: false });
+      messages = await api.get(`/messages/with/${getContactId()}`, { cache: false });
+      usingLocalFallback = false;
+      emitMessagesUpdated();
     } catch (e) {
-      error = e?.data?.message || 'Failed to load messages.';
-      messages = [];
+      if (e?.status === 404) {
+        usingLocalFallback = true;
+        messages = loadLocalMessages();
+        error = '';
+      } else {
+        error = e?.data?.message || 'Failed to load messages.';
+        messages = [];
+      }
     } finally {
       loading = false;
     }
@@ -39,13 +76,33 @@
     error = '';
     try {
       const created = await api.post('/messages', {
-        recipientId: contact.id,
+        recipientId: getContactId(),
         content
       });
       messages = [...messages, created];
+      usingLocalFallback = false;
       draft = '';
+      emitMessagesUpdated();
     } catch (e) {
-      error = e?.data?.message || 'Failed to send message.';
+      if (e?.status === 404) {
+        usingLocalFallback = true;
+        const created = {
+          id: `local-${Date.now()}`,
+          senderId: currentUser?.id || currentUser?.userId,
+          senderName: currentUser?.fullName || 'You',
+          recipientId: getContactId(),
+          recipientName: contact?.fullName || 'Contact',
+          content,
+          createdAt: new Date().toISOString()
+        };
+        messages = [...loadLocalMessages(), created];
+        saveLocalMessages(messages);
+        draft = '';
+        error = '';
+        emitMessagesUpdated();
+      } else {
+        error = e?.data?.message || 'Failed to send message.';
+      }
     } finally {
       sending = false;
     }
@@ -66,6 +123,9 @@
         <p class="eyebrow">Conversation</p>
         <h3>{contact.fullName}</h3>
         <p class="subtitle">{contact.email || ''}</p>
+        {#if usingLocalFallback}
+          <p class="fallback-note">Using local chat storage until the backend message route is available.</p>
+        {/if}
       </div>
       <button class="close-btn" on:click={onClose} aria-label="Close message dialog">✕</button>
     </div>
@@ -135,6 +195,12 @@
   .subtitle {
     color: var(--gray-500);
     font-size: 0.85rem;
+  }
+
+  .fallback-note {
+    margin-top: 0.35rem;
+    color: #92400e;
+    font-size: 0.78rem;
   }
 
   .messages-panel {

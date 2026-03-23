@@ -8,12 +8,11 @@ import com.uniconnect.messaging.repository.DirectMessageRepository;
 import com.uniconnect.model.Role;
 import com.uniconnect.model.User;
 import com.uniconnect.repository.UserRepository;
-import com.uniconnect.student.modules.mentor.enums.ConnectionStatus;
-import com.uniconnect.student.modules.mentor.repository.MentorConnectionRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -27,16 +26,13 @@ public class DirectMessageController {
 
     private final DirectMessageRepository directMessageRepository;
     private final UserRepository userRepository;
-    private final MentorConnectionRepository mentorConnectionRepository;
 
     public DirectMessageController(
             DirectMessageRepository directMessageRepository,
-            UserRepository userRepository,
-            MentorConnectionRepository mentorConnectionRepository
+            UserRepository userRepository
     ) {
         this.directMessageRepository = directMessageRepository;
         this.userRepository = userRepository;
-        this.mentorConnectionRepository = mentorConnectionRepository;
     }
 
     @GetMapping("/conversations")
@@ -67,14 +63,24 @@ public class DirectMessageController {
                     otherUser.getDepartment(),
                     otherUser.getRole(),
                     message.getContent(),
-                    message.getCreatedAt()
+                    message.getCreatedAt(),
+                    directMessageRepository.countBySenderIdAndRecipientIdAndReadAtIsNull(otherUserId, currentUser.getId())
             ));
         }
 
         return ResponseEntity.ok(new ArrayList<>(summaries.values()));
     }
 
+    @GetMapping("/unread-count")
+    public ResponseEntity<Map<String, Long>> getUnreadCount(@AuthenticationPrincipal User currentUser) {
+        return ResponseEntity.ok(Map.of(
+                "unreadCount",
+                directMessageRepository.countByRecipientIdAndReadAtIsNull(currentUser.getId())
+        ));
+    }
+
     @GetMapping("/with/{otherUserId}")
+    @Transactional
     public ResponseEntity<List<DirectMessageResponse>> getMessagesWith(
             @AuthenticationPrincipal User currentUser,
             @PathVariable Long otherUserId
@@ -83,6 +89,7 @@ public class DirectMessageController {
                 .orElseThrow(() -> new IllegalArgumentException("User not found."));
 
         ensureMessagingAllowed(currentUser, otherUser);
+        directMessageRepository.markConversationAsRead(otherUserId, currentUser.getId());
 
         List<DirectMessageResponse> responses = directMessageRepository
                 .findBySenderIdAndRecipientIdOrSenderIdAndRecipientIdOrderByCreatedAtAsc(
@@ -126,17 +133,6 @@ public class DirectMessageController {
 
         if (!((currentIsStudent && otherIsMentor) || (currentIsMentor && otherIsStudent))) {
             throw new IllegalArgumentException("Messaging is only allowed between students and mentors.");
-        }
-
-        Integer studentId = currentIsStudent ? currentUser.getId().intValue() : otherUser.getId().intValue();
-        Integer mentorId = currentIsMentor ? currentUser.getId().intValue() : otherUser.getId().intValue();
-
-        boolean connected = mentorConnectionRepository.existsByStudentIdAndMentorIdAndConnectionStatus(
-                studentId, mentorId, ConnectionStatus.Approved
-        );
-
-        if (!connected) {
-            throw new IllegalArgumentException("Messaging is only available for approved mentor-student connections.");
         }
     }
 

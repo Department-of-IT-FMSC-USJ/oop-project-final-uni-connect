@@ -9,6 +9,8 @@
   let topStudents = [];
   let proofs = [];
   let pendingProofCount = 0;
+  let mentorCount = 0;
+  let studentCount = 0;
   let showEvidenceReview = false;
   let showAddMentor = false;
   let searchQuery = '';
@@ -32,7 +34,6 @@
   let mentorRole = 'ACADEMIC_MENTOR';
   let mentorDepartment = 'Department of Information Technology';
   let mentorPhone = '';
-  let mentorCpmNumber = '';
   let mentorError = '';
   let mentorLoading = false;
   let mentorSuccess = '';
@@ -57,6 +58,7 @@
 
     try {
       await Promise.all([
+        loadSummaryCounts({ force }),
         loadFeedbacks({ force }),
         loadTopStudents({ force }),
         loadProofs({ force })
@@ -82,6 +84,24 @@
       if (!mounted) return;
       feedbacks = res.data || [];
     } catch (e) { console.error('Failed to load feedbacks', e); }
+  }
+
+  async function loadSummaryCounts({ force = false } = {}) {
+    try {
+      const [academicMentorsRes, industryMentorsRes, studentsRes] = await Promise.all([
+        api.get('/users/by-role/ACADEMIC_MENTOR', { cache: !force }),
+        api.get('/users/by-role/INDUSTRY_MENTOR', { cache: !force }),
+        api.get('/users/students/search', { cache: !force })
+      ]);
+      if (!mounted) return;
+      const academicMentors = academicMentorsRes.data || [];
+      const industryMentors = industryMentorsRes.data || [];
+      const students = studentsRes.data || [];
+      mentorCount = academicMentors.length + industryMentors.length;
+      studentCount = students.length;
+    } catch (e) {
+      console.error('Failed to load summary counts', e);
+    }
   }
 
   async function loadTopStudents({ force = false } = {}) {
@@ -153,12 +173,11 @@
         password: mentorPassword,
         role: mentorRole,
         department: mentorDepartment,
-        phone: mentorPhone,
-        cpmNumber: mentorCpmNumber
+        phone: mentorPhone
       });
       invalidateApiCache('/users');
       mentorSuccess = `${mentorRole === 'ACADEMIC_MENTOR' ? 'Academic' : 'Industry'} mentor account created successfully!`;
-      mentorFullName = ''; mentorEmail = ''; mentorPassword = ''; mentorPhone = ''; mentorCpmNumber = '';
+      mentorFullName = ''; mentorEmail = ''; mentorPassword = ''; mentorPhone = '';
     } catch (e) {
       mentorError = e.data?.message || 'Failed to create account';
     } finally { mentorLoading = false; }
@@ -177,6 +196,17 @@
   {/if}
 
   <!-- Top Actions -->
+  <div class="stats-strip">
+    <div class="card stat-card">
+      <span class="stat-label">Registered Mentors</span>
+      <strong class="stat-value">{mentorCount}</strong>
+    </div>
+    <div class="card stat-card">
+      <span class="stat-label">Registered Students</span>
+      <strong class="stat-value">{studentCount}</strong>
+    </div>
+  </div>
+
   <div class="top-actions">
     <div class="search-box">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -376,12 +406,6 @@
               <input class="input" bind:value={mentorPhone} placeholder="+94 71 234 5678" />
             </div>
           </div>
-          {#if mentorRole === 'ACADEMIC_MENTOR'}
-            <div class="form-group">
-              <label>CPM Number</label>
-              <input class="input" bind:value={mentorCpmNumber} placeholder="CPM12345" />
-            </div>
-          {/if}
           <div class="modal-actions">
             <button type="button" class="btn btn-outline" on:click={() => showAddMentor = false}>Cancel</button>
             <button type="submit" class="btn btn-primary" disabled={mentorLoading}>
@@ -400,6 +424,30 @@
     align-items: center;
     gap: 1rem;
     margin-bottom: 1.5rem;
+  }
+
+  .stats-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .stat-card {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.1rem 1.25rem;
+  }
+
+  .stat-label {
+    color: var(--gray-500);
+    font-size: 0.875rem;
+  }
+
+  .stat-value {
+    font-size: 1.9rem;
+    color: var(--primary);
   }
 
   .search-box {
@@ -510,6 +558,7 @@
   .filter-row { display: flex; gap: 0.5rem; }
 
   @media (max-width: 900px) {
+    .stats-strip { grid-template-columns: 1fr; }
     .dashboard-grid { grid-template-columns: 1fr; }
     .top-actions { flex-wrap: wrap; }
   }
