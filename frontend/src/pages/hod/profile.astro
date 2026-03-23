@@ -1,0 +1,9 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProfilePage from '../../components/shared/ProfilePage.svelte';
+import { hodNavItems } from '../../lib/navigation.js';
+---
+
+<Layout title="Profile">
+  <ProfilePage client:load navItems={hodNavItems} activeItem="profile" pageTitle="My Profile" />
+</Layout>

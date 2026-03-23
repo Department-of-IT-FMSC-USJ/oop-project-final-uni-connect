@@ -1,0 +1,9 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProfilePage from '../../components/shared/ProfilePage.svelte';
+import { industryMentorNavItems } from '../../lib/navigation.js';
+---
+
+<Layout title="Profile">
+  <ProfilePage client:load navItems={industryMentorNavItems} activeItem="profile" pageTitle="My Profile" />
+</Layout>

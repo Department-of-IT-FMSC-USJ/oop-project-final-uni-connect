@@ -1,5 +1,7 @@
 package com.uniconnect.service;
 
+import com.uniconnect.academic.modules.allocations.service.StudentAllocationService;
+import com.uniconnect.dto.CreateAccountRequest;
 import com.uniconnect.dto.ProfileUpdateRequest;
 import com.uniconnect.dto.RegisterRequest;
 import com.uniconnect.model.Role;
@@ -11,15 +13,22 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+import java.util.stream.Collectors;
+
 @Service
 public class UserService implements UserDetailsService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final StudentAllocationService studentAllocationService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository,
+                        PasswordEncoder passwordEncoder,
+                        StudentAllocationService studentAllocationService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.studentAllocationService = studentAllocationService;
     }
 
     @Override
@@ -35,13 +44,34 @@ public class UserService implements UserDetailsService {
 
         if (request.getRole() == Role.UNDERGRADUATE) {
             String email = request.getEmail() == null ? "" : request.getEmail().trim();
-            String registrationNumber = request.getRegistrationNumber() == null ? "" : request.getRegistrationNumber().trim();
-            if (email.isEmpty() || registrationNumber.isEmpty()) {
-                throw new IllegalArgumentException("MC number and university email are required for undergraduate registration");
+            String mcNumber = request.getRegistrationNumber() == null ? "" : request.getRegistrationNumber().trim();
+            String cpmNumber = request.getCpmNumber() == null ? "" : request.getCpmNumber().trim();
+            String profilePicture = request.getProfilePicture() == null ? "" : request.getProfilePicture().trim();
+            String yearOfStudy = request.getYearOfStudy() == null ? "" : request.getYearOfStudy().trim();
+
+            if (mcNumber.isEmpty() || cpmNumber.isEmpty() || profilePicture.isEmpty() || email.isEmpty()) {
+                throw new IllegalArgumentException("MC number, CPM number, profile picture, and email are required for undergraduate registration");
             }
-            String emailPrefix = email.split("@")[0];
-            if (!emailPrefix.equals(registrationNumber)) {
-                throw new IllegalArgumentException("MC number must match the email prefix before @");
+
+            // MC number: 6 digits, numeric only
+            if (!mcNumber.matches("^\\d{6}$")) {
+                throw new IllegalArgumentException("MC number must be exactly 6 digits (numeric only).");
+            }
+
+            // CPM number: 5 digits, numeric only
+            if (!cpmNumber.matches("^\\d{5}$")) {
+                throw new IllegalArgumentException("CPM number must be exactly 5 digits (numeric only).");
+            }
+
+            // Email format must be: <MC>@mgt.sjp.ac.lk
+            String expectedEmail = mcNumber + "@mgt.sjp.ac.lk";
+            if (!email.equalsIgnoreCase(expectedEmail)) {
+                throw new IllegalArgumentException("Email must be exactly in the format " + expectedEmail + ".");
+            }
+
+            // Year of study must be 1..4
+            if (!yearOfStudy.matches("^[1-4]$")) {
+                throw new IllegalArgumentException("Year of study must be between 1 and 4.");
             }
         }
 
@@ -63,6 +93,39 @@ public class UserService implements UserDetailsService {
                 .yearOfStudy(request.getYearOfStudy())
                 .build();
 
+        User saved = userRepository.save(user);
+
+        if (saved.getRole() == Role.UNDERGRADUATE && saved.getId() != null) {
+            try {
+                studentAllocationService.allocateStudentAuto(saved.getId().intValue());
+            } catch (Exception ignored) {
+                // If no mentors exist yet, the allocation will happen later
+            }
+        }
+
+        return saved;
+    }
+
+    public User createAccount(CreateAccountRequest request) {
+        if (request.getRole() == Role.UNDERGRADUATE) {
+            throw new IllegalArgumentException("Use the registration endpoint for undergraduates");
+        }
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        User user = User.builder()
+                .fullName(request.getFullName())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .role(request.getRole())
+                .phone(request.getPhone())
+                .department(request.getDepartment())
+                .cpmNumber(request.getCpmNumber())
+                .profilePicture(request.getProfilePicture())
+                .build();
+
         return userRepository.save(user);
     }
 
@@ -79,5 +142,27 @@ public class UserService implements UserDetailsService {
         user.setYearOfStudy(request.getYearOfStudy());
 
         return userRepository.save(user);
+    }
+
+    public List<User> getUsersByRole(Role role) {
+        return userRepository.findByRole(role);
+    }
+
+    public List<User> searchStudentsByMinGpa(String department) {
+        return userRepository.findByRole(Role.UNDERGRADUATE).stream()
+                .filter(u -> department == null || department.isEmpty()
+                        || (u.getDepartment() != null && u.getDepartment().equalsIgnoreCase(department)))
+                .collect(Collectors.toList());
+    }
+
+    public List<User> getTopStudentsByPoints(int limit) {
+        return userRepository.findByRole(Role.UNDERGRADUATE).stream()
+                .sorted((a, b) -> {
+                    int pa = a.getCumulativePoints() == null ? 0 : a.getCumulativePoints();
+                    int pb = b.getCumulativePoints() == null ? 0 : b.getCumulativePoints();
+                    return Integer.compare(pb, pa);
+                })
+                .limit(limit)
+                .collect(Collectors.toList());
     }
 }

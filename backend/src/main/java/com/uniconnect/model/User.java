@@ -64,7 +64,7 @@ public class User implements UserDetails {
     private Role role;
 
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "CLOB")
     @JsonProperty("profilePicture")
     private String profilePicture;
 

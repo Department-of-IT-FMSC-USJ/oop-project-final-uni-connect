@@ -26,6 +26,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
+        // Never block authentication endpoints based on an Authorization header.
+        // The login/register endpoints must remain accessible even if a stale token exists in localStorage.
+        String path = request.getRequestURI();
+        if (path != null && path.startsWith("/api/auth/")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
 
         final String authHeader = request.getHeader("Authorization");
         final String tokenPrefix = "Bearer mock_token_for_";
@@ -41,14 +48,20 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String userEmail = authHeaderValue.substring("mock_token_for_".length());
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                User user = (User) userService.loadUserByUsername(userEmail);
+                try {
+                    User user = (User) userService.loadUserByUsername(userEmail);
 
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        user,
-                        null,
-                        user.getAuthorities());
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                            user,
+                            null,
+                            user.getAuthorities());
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                } catch (Exception ignored) {
+                    // If the token is stale/invalid, just keep the request unauthenticated.
+                    // This avoids hard-blocking public endpoints or causing confusing 403s.
+                    SecurityContextHolder.clearContext();
+                }
             }
         }
 

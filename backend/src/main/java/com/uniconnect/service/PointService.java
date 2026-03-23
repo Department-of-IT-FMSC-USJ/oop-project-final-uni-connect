@@ -12,6 +12,12 @@ import com.uniconnect.repository.PointAuditRepository;
 import com.uniconnect.repository.PointRecordRepository;
 import com.uniconnect.repository.ProofSubmissionRepository;
 import com.uniconnect.repository.UserRepository;
+import com.uniconnect.student.modules.mentor.entity.MentorConnection;
+import com.uniconnect.student.modules.mentor.enums.ConnectionStatus;
+import com.uniconnect.student.modules.mentor.enums.MentorType;
+import com.uniconnect.student.modules.mentor.repository.MentorConnectionRepository;
+import com.uniconnect.student.modules.recommendation.dto.RecommendationResponseDTO;
+import com.uniconnect.student.modules.recommendation.service.MentorRecommendationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class PointService {
@@ -29,6 +36,8 @@ public class PointService {
     private final PointAuditRepository pointAuditRepository;
     private final ProofSubmissionRepository proofRepository;
     private final UserRepository userRepository;
+    private final MentorConnectionRepository mentorConnectionRepository;
+    private final MentorRecommendationService mentorRecommendationService;
 
     private final int mentorThreshold;
 
@@ -36,16 +45,20 @@ public class PointService {
                         PointAuditRepository pointAuditRepository,
                         ProofSubmissionRepository proofRepository,
                         UserRepository userRepository,
+                        MentorConnectionRepository mentorConnectionRepository,
+                        MentorRecommendationService mentorRecommendationService,
                         @Value("${uniconnect.points.mentor-threshold:50}") int mentorThreshold) {
         this.pointRecordRepository = pointRecordRepository;
         this.pointAuditRepository = pointAuditRepository;
         this.proofRepository = proofRepository;
         this.userRepository = userRepository;
+        this.mentorConnectionRepository = mentorConnectionRepository;
+        this.mentorRecommendationService = mentorRecommendationService;
         this.mentorThreshold = mentorThreshold;
     }
 
     public PointRecordResponse allocatePoints(User rep, AllocatePointsRequest request) {
-        requireRole(rep, Role.DEPARTMENT_REP, "Only department representatives can allocate points.");
+        requireRole(rep, Role.DEPARTMENT_HEAD, "Only department heads can allocate points.");
 
         User student = userRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new IllegalArgumentException("Student not found"));
@@ -110,7 +123,7 @@ public class PointService {
             if (!record.getStudent().getId().equals(requester.getId())) {
                 throw new IllegalArgumentException("You can only view your own audit records.");
             }
-        } else if (requester.getRole() != Role.DEPARTMENT_REP && requester.getRole() != Role.DEPARTMENT_HEAD) {
+        } else if (requester.getRole() != Role.DEPARTMENT_HEAD) {
             throw new IllegalArgumentException("Not authorized to view audit records.");
         }
 
@@ -254,8 +267,8 @@ public class PointService {
     }
 
     public List<EligibleStudentResponse> getEligibleStudents(User requester) {
-        if (requester.getRole() != Role.DEPARTMENT_REP && requester.getRole() != Role.DEPARTMENT_HEAD) {
-            throw new IllegalArgumentException("Only department reps or heads can view eligible students.");
+        if (requester.getRole() != Role.DEPARTMENT_HEAD) {
+            throw new IllegalArgumentException("Only department heads can view eligible students.");
         }
 
         List<User> eligible = userRepository.findByMentorEligibleTrue();
@@ -343,9 +356,53 @@ public class PointService {
         }
 
         if (delta != 0) {
-            student.setCumulativePoints(current + delta);
-            student.setMentorEligible((current + delta) >= mentorThreshold);
+            int oldTotal = current;
+            int newTotal = current + delta;
+
+            student.setCumulativePoints(newTotal);
+            student.setMentorEligible(newTotal >= mentorThreshold);
             userRepository.save(student);
+
+            // Industry auto-connect trigger: one-time when the student crosses >30 points.
+            if (oldTotal <= 30 && newTotal > 30) {
+                Integer studentId = student.getId() == null ? null : student.getId().intValue();
+                if (studentId != null
+                        && !mentorConnectionRepository.existsByStudentIdAndMentorTypeAndConnectionStatus(
+                        studentId, MentorType.Industry, ConnectionStatus.Approved)) {
+
+                    try {
+                        List<RecommendationResponseDTO> recs = mentorRecommendationService.generateRecommendations(studentId);
+                        if (recs == null || recs.isEmpty()) {
+                            return;
+                        }
+
+                        int topScore = recs.stream()
+                                .map(r -> Optional.ofNullable(r.getMatchScore()).orElse(0))
+                                .max(Integer::compareTo)
+                                .orElse(0);
+
+                        List<RecommendationResponseDTO> top = recs.stream()
+                                .filter(r -> Optional.ofNullable(r.getMatchScore()).orElse(0) == topScore)
+                                .collect(Collectors.toList());
+
+                        RecommendationResponseDTO chosen = top.get(ThreadLocalRandom.current().nextInt(top.size()));
+                        Integer chosenMentorId = chosen.getMentorId();
+                        if (chosenMentorId == null) {
+                            return;
+                        }
+
+                        // Create approved industry connection.
+                        MentorConnection connection = new MentorConnection();
+                        connection.setStudentId(studentId);
+                        connection.setMentorId(chosenMentorId);
+                        connection.setMentorType(MentorType.Industry);
+                        connection.setConnectionStatus(ConnectionStatus.Approved);
+                        mentorConnectionRepository.save(connection);
+                    } catch (Exception ignored) {
+                        // Avoid breaking point updates; auto-connect will simply be skipped.
+                    }
+                }
+            }
         } else if (student.getMentorEligible() == null) {
             student.setMentorEligible(current >= mentorThreshold);
             userRepository.save(student);

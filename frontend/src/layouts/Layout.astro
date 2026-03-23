@@ -1,69 +1,176 @@
 ---
-import '../styles/global.css';
-import LogoutButton from '../components/LogoutButton.svelte';
-import LoginButton from '../components/LoginButton.svelte';
-
 interface Props {
-	title: string;
-	headerType?: 'full' | 'simple' | 'auth';
-	subtitle?: string;
-	registerUrl?: string;
-	loginUrl?: string;
+  title: string;
 }
 
-const { title, headerType = 'full', subtitle, registerUrl = "#", loginUrl = "#" } = Astro.props;
+const { title } = Astro.props;
 ---
 
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="description" content="UniConnect - University Connection Platform" />
-		<meta name="viewport" content="width=device-width" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<meta name="generator" content={Astro.generator} />
-		<title>{title} | UniConnect</title>
-	</head>
-	<body>
-		<div class="bg-shape shape-1"></div>
-		<div class="bg-shape shape-2"></div>
-		
-		<header class="app-header">
-			<div class="logo-section">
-				<div class="logo-icon">
-					<img src="/logo.jpg" alt="UniConnect Logo" />
-				</div>
-				<div>
-					<div class="logo-text">UniConnect</div>
-					{subtitle && <div class="logo-subtext">{subtitle}</div>}
-				</div>
-			</div>
-
-			<nav class="nav-links">
-				{headerType === 'full' && (
-					<>
-						<a href="/" class="btn btn-outline">Home</a>
-						<LoginButton client:load />
-					</>
-				)}
-				{headerType === 'auth' && (
-					<>
-						<a href="/" class="btn btn-glass">Home</a>
-						<a href={registerUrl} class="btn btn-glass">Register</a>
-						<LogoutButton client:load />
-					</>
-				)}
-				{headerType === 'simple' && (
-					<>
-						<a href="/" class="btn btn-outline">Home</a>
-						<a href={loginUrl} class="btn btn-primary">Login</a>
-					</>
-				)}
-			</nav>
-		</header>
-
-		<main class="main-content">
-			<slot />
-		</main>
-	</body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>{title} | UniConnect</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <slot />
+  </body>
 </html>
+
+<style is:global>
+  :root {
+    --primary: #1e3a5f;
+    --primary-light: #2d5a8e;
+    --primary-dark: #0f2440;
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --success: #10b981;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --gray-50: #f9fafb;
+    --gray-100: #f3f4f6;
+    --gray-200: #e5e7eb;
+    --gray-300: #d1d5db;
+    --gray-400: #9ca3af;
+    --gray-500: #6b7280;
+    --gray-600: #4b5563;
+    --gray-700: #374151;
+    --gray-800: #1f2937;
+    --gray-900: #111827;
+    --sidebar-width: 240px;
+    --header-height: 64px;
+    --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);
+    --shadow-lg: 0 10px 15px rgba(0,0,0,0.1), 0 4px 6px rgba(0,0,0,0.05);
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--gray-50);
+    color: var(--gray-800);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; text-decoration: none; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+    border: none;
+    outline: none;
+  }
+
+  input, select, textarea {
+    font-family: inherit;
+    font-size: 0.875rem;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 0.15s ease;
+  }
+
+  .btn-primary {
+    background: var(--primary);
+    color: white;
+  }
+  .btn-primary:hover { background: var(--primary-light); }
+
+  .btn-accent {
+    background: var(--accent);
+    color: white;
+  }
+  .btn-accent:hover { background: var(--accent-light); }
+
+  .btn-success {
+    background: var(--success);
+    color: white;
+  }
+
+  .btn-danger {
+    background: var(--danger);
+    color: white;
+  }
+
+  .btn-outline {
+    background: white;
+    border: 1px solid var(--gray-300);
+    color: var(--gray-700);
+  }
+  .btn-outline:hover { background: var(--gray-50); border-color: var(--gray-400); }
+
+  .card {
+    background: white;
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 1.5rem;
+  }
+
+  .input {
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    background: white;
+    transition: border-color 0.15s;
+  }
+  .input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.5rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .badge-success { background: #d1fae5; color: #065f46; }
+  .badge-warning { background: #fef3c7; color: #92400e; }
+  .badge-danger { background: #fee2e2; color: #991b1b; }
+  .badge-info { background: #dbeafe; color: #1e40af; }
+
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(4px);
+  }
+
+  .modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 2rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: var(--shadow-lg);
+  }
+</style>
