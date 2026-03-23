@@ -25,4 +25,6 @@ public interface MentoringSessionService {
      * @return list of session records
      */
     List<SessionResponseDTO> getSessionsByMentor(Integer mentorId);
+
+    void cancelSession(Integer sessionId, Integer mentorId);
 }

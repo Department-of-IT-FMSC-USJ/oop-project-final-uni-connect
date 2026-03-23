@@ -1,6 +1,7 @@
 package com.uniconnect.academic.modules.sessions.controller;
 
 import com.uniconnect.academic.common.dto.ApiResponseDTO;
+import com.uniconnect.academic.common.exception.UnauthorizedAccessException;
 import com.uniconnect.academic.modules.sessions.dto.SessionRequestDTO;
 import com.uniconnect.academic.modules.sessions.dto.SessionResponseDTO;
 import com.uniconnect.academic.modules.sessions.service.MentoringSessionService;
@@ -35,7 +36,12 @@ public class MentoringSessionController {
      */
     @PostMapping
     public ResponseEntity<ApiResponseDTO<SessionResponseDTO>> createSession(
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String userRole,
             @Valid @RequestBody SessionRequestDTO requestDTO) {
+
+        if (!"MENTOR".equalsIgnoreCase(userRole)) {
+            throw new UnauthorizedAccessException("Only logged-in academic mentors can create sessions.");
+        }
 
         SessionResponseDTO responseDTO = mentoringSessionService.createSession(requestDTO);
 
@@ -55,12 +61,35 @@ public class MentoringSessionController {
      */
     @GetMapping("/mentor/{mentorId}")
     public ResponseEntity<ApiResponseDTO<List<SessionResponseDTO>>> getSessionsByMentor(
-            @PathVariable("mentorId") Integer mentorId) {
+            @PathVariable("mentorId") Integer mentorId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String userRole) {
+
+        if (!"MENTOR".equalsIgnoreCase(userRole)) {
+            throw new UnauthorizedAccessException("Only logged-in academic mentors can view sessions.");
+        }
 
         List<SessionResponseDTO> sessions = mentoringSessionService.getSessionsByMentor(mentorId);
 
         ApiResponseDTO<List<SessionResponseDTO>> response = ApiResponseDTO.success(
                 "Sessions retrieved successfully", sessions);
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @DeleteMapping("/{sessionId}")
+    public ResponseEntity<ApiResponseDTO<Void>> cancelSession(
+            @PathVariable("sessionId") Integer sessionId,
+            @RequestParam("mentorId") Integer mentorId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String userRole) {
+
+        if (!"MENTOR".equalsIgnoreCase(userRole)) {
+            throw new UnauthorizedAccessException("Only logged-in academic mentors can cancel sessions.");
+        }
+
+        mentoringSessionService.cancelSession(sessionId, mentorId);
+
+        ApiResponseDTO<Void> response = ApiResponseDTO.success(
+                "Session cancelled successfully", null);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

@@ -29,4 +29,6 @@ public interface MentorConnectionService {
     List<MentorConnectionResponseDTO> getConnectionsByStudent(Integer studentId);
 
     List<MentorConnectionResponseDTO> getConnectionsByMentor(Integer mentorId);
+
+    MentorConnectionResponseDTO autoAssignIndustryMentor(Integer studentId);
 }

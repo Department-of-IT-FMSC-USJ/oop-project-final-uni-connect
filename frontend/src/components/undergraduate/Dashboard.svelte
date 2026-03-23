@@ -4,6 +4,7 @@
   import { undergraduateNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
   import FeedbackDialog from '../shared/FeedbackDialog.svelte';
+  import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
   let points = 0;
@@ -19,6 +20,15 @@
   let proofError = '';
   let proofSuccess = '';
   let showProofUpload = false;
+  let showInterestForm = false;
+  let mentorFlowError = '';
+  let mentorFlowLoading = false;
+  let refreshTimer = null;
+  let interestForm = {
+    interestAreas: '',
+    specialization: '',
+    preferredCompany: ''
+  };
   let proofForm = {
     title: '',
     description: '',
@@ -35,10 +45,27 @@
     return { level: 'Level 1: Beginner', next: 100 - pts };
   }
 
-  onMount(async () => {
+  onMount(() => {
+    initializeDashboard();
+    refreshTimer = window.setInterval(() => refreshLiveData(), 15000);
+    return () => {
+      if (refreshTimer) {
+        window.clearInterval(refreshTimer);
+      }
+    };
+  });
+
+  async function initializeDashboard() {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'UNDERGRADUATE') { window.location.href = getRoleDashboardPath(user.role); return; }
 
+    await loadProfileSummary();
+    await loadMentors();
+    await loadNotePoolSummary();
+    await loadProofs();
+  }
+
+  async function loadProfileSummary() {
     try {
       const profile = await api.get('/users/profile', { cache: false });
       points = profile.cumulativePoints || 0;
@@ -46,44 +73,62 @@
       level = lvl.level;
       nextLevelPoints = lvl.next;
       user = { ...user, ...profile };
-    } catch (e) { console.error('Failed to load profile', e); }
+    } catch (e) {
+      console.error('Failed to load profile', e);
+    }
+  }
 
+  async function loadMentors() {
+    mentors = { academic: null, industry: null };
     try {
       const mentorData = await api.get(`/mentor/connections/${user.userId || user.id}`, { cache: false });
-      const connections = mentorData.data || [];
+      const connections = (mentorData.data || []).filter((entry) => entry.connectionStatus === 'Approved');
       for (const conn of connections) {
-        if (conn.mentorType === 'Academic' && conn.connectionStatus === 'Approved') {
+        if (conn.mentorType === 'Academic') {
           try {
             const mUser = await api.get(`/users/${conn.mentorId}`, { cache: false });
             mentors.academic = mUser.data;
-          } catch {}
+          } catch (e) {
+            console.error('Failed to load academic mentor profile', e);
+          }
         }
-        if (conn.mentorType === 'Industry' && conn.connectionStatus === 'Approved') {
+        if (conn.mentorType === 'Industry') {
           try {
             const mUser = await api.get(`/users/${conn.mentorId}`, { cache: false });
             mentors.industry = mUser.data;
-          } catch {}
+          } catch (e) {
+            console.error('Failed to load industry mentor profile', e);
+          }
         }
       }
-      mentors = mentors;
-    } catch (e) { console.error('Failed to load mentors', e); }
+    } catch (e) {
+      console.error('Failed to load mentors', e);
+    }
+  }
 
+  async function loadNotePoolSummary() {
     try {
       const materialsRes = await api.get('/materials', { cache: false });
-      const allMaterials = materialsRes.data || [];
+      const allMaterials = Array.isArray(materialsRes) ? materialsRes : (materialsRes.data || []);
       notePoolCount = allMaterials.length;
       recentNotes = allMaterials.slice(0, 3);
     } catch (e) {
       console.error('Failed to load note pool summary', e);
     }
+  }
 
+  async function loadProofs() {
     try {
       myProofs = await api.get('/proofs/my', { cache: false });
     } catch (e) {
       console.error('Failed to load proof submissions', e);
       myProofs = [];
     }
-  });
+  }
+
+  async function refreshLiveData() {
+    await Promise.all([loadProfileSummary(), loadMentors(), loadProofs()]);
+  }
 
   async function submitProof() {
     proofError = '';
@@ -128,6 +173,54 @@
       myProofs = await api.get('/proofs/my', { cache: false });
     } catch (e) {
       proofError = e?.data?.message || 'Failed to submit evidence.';
+    }
+  }
+
+  async function submitIndustryInterestProfile() {
+    mentorFlowError = '';
+    const studentId = user?.userId || user?.id;
+    if (!studentId) {
+      mentorFlowError = 'Unable to identify your account. Please re-login.';
+      return;
+    }
+
+    const tags = [
+      interestForm.interestAreas,
+      interestForm.specialization,
+      interestForm.preferredCompany
+    ]
+      .map((value) => value?.trim())
+      .filter(Boolean)
+      .flatMap((value) => value.split(','))
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    if (tags.length < 2) {
+      mentorFlowError = 'Add at least two interests/specialization tags.';
+      return;
+    }
+
+    mentorFlowLoading = true;
+    try {
+      await api.post('/recommendations/student-profile', {
+        studentId,
+        studentName: user.fullName,
+        department: user.department,
+        interestTags: [...new Set(tags)].join(', ')
+      });
+
+      await api.post(`/mentor/industry/auto-assign/${studentId}`, {});
+      await loadMentors();
+      showInterestForm = false;
+      interestForm = { interestAreas: '', specialization: '', preferredCompany: '' };
+      toast.success({
+        title: 'Mentor matched',
+        message: 'Your industry mentor recommendation has been assigned successfully.'
+      });
+    } catch (e) {
+      mentorFlowError = e?.data?.message || 'Unable to assign an industry mentor yet. Try refining your interests.';
+    } finally {
+      mentorFlowLoading = false;
     }
   }
 
@@ -308,7 +401,8 @@
         {:else if points >= 30}
           <div class="card mentor-card pending">
             <div class="mentor-type">Industry Mentor</div>
-            <p class="pending-text">You're eligible! An industry mentor will be recommended soon.</p>
+            <p class="pending-text">You're eligible. Complete your interest profile to get a mentor match.</p>
+            <button class="btn btn-accent btn-sm" on:click={() => showInterestForm = true}>Set Interests & Match Mentor</button>
           </div>
         {:else}
           <div class="card mentor-card locked">
@@ -364,6 +458,38 @@
     </div>
   {/if}
 
+  {#if showInterestForm}
+    <div class="modal-overlay" on:click|self={() => showInterestForm = false}>
+      <div class="modal-content">
+        <h2>Industry Mentor Matching</h2>
+        <p class="modal-copy">Tell us your focus areas so we can match you with the right industry mentor.</p>
+        {#if mentorFlowError}
+          <div class="alert alert-error">{mentorFlowError}</div>
+        {/if}
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label for="interest-areas">Areas of Interest</label>
+            <input id="interest-areas" class="input" bind:value={interestForm.interestAreas} placeholder="AI, Cloud Computing, Cyber Security" />
+          </div>
+          <div class="form-group">
+            <label for="interest-specialization">Specialization</label>
+            <input id="interest-specialization" class="input" bind:value={interestForm.specialization} placeholder="Backend Engineering, Data Science" />
+          </div>
+          <div class="form-group">
+            <label for="interest-company">Preferred Company / Domain</label>
+            <input id="interest-company" class="input" bind:value={interestForm.preferredCompany} placeholder="FinTech, Google, AWS" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-outline" on:click={() => showInterestForm = false}>Cancel</button>
+          <button class="btn btn-primary" on:click={submitIndustryInterestProfile} disabled={mentorFlowLoading}>
+            {mentorFlowLoading ? 'Matching...' : 'Find Mentor'}
+          </button>
+        </div>
+      </div>
+    </div>
+  {/if}
+
   {#if showFeedback}
     <FeedbackDialog
       sessionId={feedbackSessionId}
@@ -407,6 +533,7 @@
   .industry-avatar { background:var(--accent); }
   .mentor-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
   .pending-text,.locked-text { color:var(--gray-600); }
+  .modal-copy { margin:0.5rem 0 1rem; color:var(--gray-600); }
   .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--accent); margin-bottom:0.35rem; }
   .alert { padding:0.8rem 1rem; border-radius:var(--radius); margin-bottom:1rem; }
   .alert-error { background:#fee2e2; color:#991b1b; }

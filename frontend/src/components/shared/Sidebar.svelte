@@ -37,19 +37,22 @@
     top: 0;
     bottom: 0;
     width: var(--sidebar-width);
-    background: var(--primary);
+    background:
+      radial-gradient(circle at top left, rgba(96, 165, 250, 0.18), transparent 10rem),
+      linear-gradient(180deg, #0f2440 0%, #163559 52%, #1f4d7f 100%);
     color: white;
     display: flex;
     flex-direction: column;
     z-index: 100;
+    box-shadow: 24px 0 60px rgba(15, 23, 42, 0.2);
   }
 
   .brand {
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 1.35rem 1.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
   }
 
   .brand-icon {
@@ -66,7 +69,7 @@
 
   .nav {
     flex: 1;
-    padding: 0.75rem 0;
+    padding: 1rem 0.8rem;
     overflow-y: auto;
   }
 
@@ -74,7 +77,9 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem 1.5rem;
+    padding: 0.82rem 1rem;
+    margin-bottom: 0.35rem;
+    border-radius: 16px;
     color: rgba(255,255,255,0.7);
     font-size: 0.875rem;
     font-weight: 500;
@@ -84,23 +89,24 @@
 
   .nav-item:hover {
     color: white;
-    background: rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.09);
   }
 
   .nav-item.active {
     color: white;
-    background: rgba(255,255,255,0.15);
+    background: rgba(255,255,255,0.14);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08);
   }
 
   .nav-item.active::before {
     content: '';
     position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
+    left: 0.35rem;
+    top: 0.45rem;
+    bottom: 0.45rem;
     width: 3px;
-    background: white;
-    border-radius: 0 2px 2px 0;
+    background: linear-gradient(180deg, #7dd3fc, white);
+    border-radius: 999px;
   }
 
   .nav-icon {

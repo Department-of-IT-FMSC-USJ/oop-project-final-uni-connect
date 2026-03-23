@@ -8,18 +8,30 @@
   let suggestions = [];
   let loading = true;
   let error = '';
+  let submissionOpen = false;
+  let pollingTimer = null;
   let form = {
     title: '',
-    category: 'CURRICULUM_UPDATE',
+    category: 'COURSE_IMPROVEMENT',
     description: '',
     suggestedCourse: ''
   };
 
-  onMount(async () => {
+  onMount(() => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'INDUSTRY_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
-    await loadSuggestions();
+    loadAll();
+    pollingTimer = window.setInterval(() => loadAll(), 15000);
+    return () => {
+      if (pollingTimer) {
+        window.clearInterval(pollingTimer);
+      }
+    };
   });
+
+  async function loadAll() {
+    await Promise.all([loadSuggestions(), loadSubmissionWindow()]);
+  }
 
   async function loadSuggestions() {
     loading = true;
@@ -34,18 +46,31 @@
     }
   }
 
+  async function loadSubmissionWindow() {
+    try {
+      const res = await api.get('/suggestions/submission-window', { cache: false });
+      submissionOpen = !!res?.data?.open;
+    } catch (e) {
+      submissionOpen = false;
+    }
+  }
+
   async function submitSuggestion() {
     error = '';
+    if (!submissionOpen) {
+      error = 'Suggestions are currently closed. Wait until HOD opens the request window.';
+      return;
+    }
     try {
       await api.post('/suggestions', {
         mentorId: user.userId || user.id,
-        title: form.title,
+        suggestionTitle: form.title,
         category: form.category,
         description: form.description,
         suggestedCourse: form.suggestedCourse
       });
-      form = { title: '', category: 'CURRICULUM_UPDATE', description: '', suggestedCourse: '' };
-      await loadSuggestions();
+      form = { title: '', category: 'COURSE_IMPROVEMENT', description: '', suggestedCourse: '' };
+      await loadAll();
     } catch (e) {
       error = e?.data?.message || 'Failed to submit suggestion.';
     }
@@ -57,30 +82,33 @@
     <section class="card">
       <p class="eyebrow">Industry Mentor</p>
       <h2>Submit Curriculum Suggestion</h2>
+      <p class="window-status" class:open={submissionOpen}>
+        {submissionOpen ? 'HOD request is active. You can submit suggestions now.' : 'Submissions are currently closed. Wait for HOD to request suggestions.'}
+      </p>
       <div class="form-grid">
         <div class="form-group">
           <label>Title</label>
-          <input class="input" bind:value={form.title} />
+          <input class="input" bind:value={form.title} disabled={!submissionOpen} />
         </div>
         <div class="form-group">
           <label>Category</label>
-          <select class="input" bind:value={form.category}>
-            <option value="CURRICULUM_UPDATE">Curriculum Update</option>
+          <select class="input" bind:value={form.category} disabled={!submissionOpen}>
+            <option value="COURSE_IMPROVEMENT">Course Improvement</option>
             <option value="NEW_COURSE">New Course</option>
-            <option value="SKILL_GAP">Skill Gap</option>
-            <option value="INDUSTRY_TREND">Industry Trend</option>
+            <option value="SKILL_DEVELOPMENT">Skill Development</option>
+            <option value="TECHNOLOGY_UPDATE">Technology Update</option>
           </select>
         </div>
         <div class="form-group">
           <label>Suggested Course</label>
-          <input class="input" bind:value={form.suggestedCourse} />
+          <input class="input" bind:value={form.suggestedCourse} disabled={!submissionOpen} />
         </div>
         <div class="form-group full-width">
           <label>Description</label>
-          <textarea class="input" rows="5" bind:value={form.description}></textarea>
+          <textarea class="input" rows="5" bind:value={form.description} disabled={!submissionOpen}></textarea>
         </div>
       </div>
-      <div class="actions"><button class="btn btn-success" on:click={submitSuggestion}>Submit</button></div>
+      <div class="actions"><button class="btn btn-success" on:click={submitSuggestion} disabled={!submissionOpen}>Submit</button></div>
       {#if error}<div class="alert alert-error">{error}</div>{/if}
     </section>
 
@@ -115,6 +143,14 @@
   .full-width { grid-column:1 / -1; }
   .form-group label { display:block; margin-bottom:0.35rem; font-size:0.82rem; color:var(--gray-600); }
   .actions { margin-top:1rem; }
+  .window-status {
+    margin-top: 0.45rem;
+    color: var(--gray-600);
+    font-size: 0.9rem;
+  }
+  .window-status.open {
+    color: #065f46;
+  }
   .list { display:grid; gap:1rem; }
   .list-card { border:1px solid var(--gray-200); border-radius:var(--radius); padding:1rem; }
   .list-top { display:flex; justify-content:space-between; gap:1rem; margin-bottom:0.5rem; }

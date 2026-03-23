@@ -51,4 +51,19 @@ public class MentoringSessionController {
                 "Sessions retrieved successfully", sessions);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @DeleteMapping("/{sessionId}")
+    public ResponseEntity<ApiResponseDTO<Void>> cancelSession(
+            @PathVariable("sessionId") Integer sessionId,
+            @RequestParam("mentorId") Integer mentorId,
+            @RequestHeader(value = "X-User-Role", defaultValue = "") String userRole) {
+
+        if (!"MENTOR".equalsIgnoreCase(userRole)) {
+            throw new UnauthorizedAccessException("Only logged-in industry mentors can cancel sessions.");
+        }
+
+        mentoringSessionService.cancelSession(sessionId, mentorId);
+        ApiResponseDTO<Void> response = ApiResponseDTO.success("Session cancelled successfully", null);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
 }

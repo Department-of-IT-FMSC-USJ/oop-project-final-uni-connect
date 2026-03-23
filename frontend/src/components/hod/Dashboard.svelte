@@ -3,6 +3,8 @@
   import { api, getCurrentUser, getRoleDashboardPath, invalidateApiCache, isHodWorkspaceRole } from '../../lib/api.js';
   import { hodNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
   const isDepartmentHead = user?.role === 'DEPARTMENT_HEAD';
@@ -35,6 +37,11 @@
   let mounted = false;
   let searchController = null;
   let searchDebounce = null;
+  let pendingDeleteUser = null;
+  let deleteLoading = false;
+  let dashboardRefreshTimer = null;
+  let submissionOpen = false;
+  let pendingSuggestionCount = 0;
 
   // Feedback filters
   let minRating = '';
@@ -58,17 +65,23 @@
     if (!isHodWorkspaceRole(user.role)) { window.location.href = getRoleDashboardPath(user.role); return; }
 
     loadDashboardData();
+    dashboardRefreshTimer = window.setInterval(() => {
+      loadDashboardData({ force: true, background: true });
+    }, 15000);
 
     return () => {
       mounted = false;
       searchController?.abort();
       if (searchDebounce) clearTimeout(searchDebounce);
+      if (dashboardRefreshTimer) clearInterval(dashboardRefreshTimer);
     };
   });
 
-  async function loadDashboardData({ force = false } = {}) {
-    dashboardLoading = true;
-    dashboardError = '';
+  async function loadDashboardData({ force = false, background = false } = {}) {
+    if (!background) {
+      dashboardLoading = true;
+      dashboardError = '';
+    }
 
     try {
       await Promise.all([
@@ -76,15 +89,33 @@
         loadAssistants({ force }),
         loadFeedbacks({ force }),
         loadTopStudents({ force }),
-        loadProofs({ force })
+        loadProofs({ force }),
+        loadCurriculumSummary({ force })
       ]);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || background) return;
       dashboardError = 'Failed to load dashboard data';
     } finally {
-      if (mounted) {
+      if (mounted && !background) {
         dashboardLoading = false;
       }
+    }
+  }
+
+  async function loadCurriculumSummary({ force = false } = {}) {
+    try {
+      const [windowRes, suggestionsRes] = await Promise.all([
+        api.get('/suggestions/submission-window', { cache: !force }),
+        api.get('/suggestions/all', { cache: !force })
+      ]);
+      if (!mounted) return;
+      submissionOpen = !!windowRes?.data?.open;
+      const allSuggestions = suggestionsRes?.data || [];
+      pendingSuggestionCount = allSuggestions.filter((item) => item.reviewStatus !== 'REVIEWED').length;
+    } catch (e) {
+      console.error('Failed to load curriculum summary', e);
+      submissionOpen = false;
+      pendingSuggestionCount = 0;
     }
   }
 
@@ -288,23 +319,37 @@
     }
   }
 
-  async function deleteUser(userId, label) {
-    if (!window.confirm(`Delete ${label}? This will disable the account and remove it from active use.`)) {
-      return;
-    }
+  function requestDeleteUser(userId, label) {
+    pendingDeleteUser = { userId, label };
+  }
+
+  async function deleteUser() {
+    if (!pendingDeleteUser) return;
+    deleteLoading = true;
     try {
-      await api.delete(`/users/${userId}`);
+      await api.delete(`/users/${pendingDeleteUser.userId}`);
       invalidateApiCache('/users');
       await Promise.all([
         loadSummaryCounts({ force: true }),
         loadAssistants({ force: true }),
         searchQuery.trim() ? searchStudents() : Promise.resolve()
       ]);
-      searchResults = searchResults.filter((entry) => entry.id !== userId);
+      searchResults = searchResults.filter((entry) => entry.id !== pendingDeleteUser.userId);
+      toast.success({
+        title: 'Account deleted',
+        message: `${pendingDeleteUser.label || 'The selected user'} has been removed from active use.`
+      });
+      pendingDeleteUser = null;
     } catch (e) {
       dashboardError = (e?.status === 404 || e?.status === 405)
         ? 'The backend is still running without the latest delete account route. Restart the backend server and try again.'
         : (e?.data?.message || 'Failed to delete account.');
+      toast.error({
+        title: 'Delete failed',
+        message: dashboardError
+      });
+    } finally {
+      deleteLoading = false;
     }
   }
 
@@ -382,6 +427,16 @@
     <button class="btn btn-outline" on:click={() => showAddMentor = true}>
       + Create Account
     </button>
+
+    <a class="btn btn-outline curriculum-btn" href="/hod/curriculum-suggestions">
+      Curriculum
+      <span class="curriculum-status" class:open={submissionOpen}>
+        {submissionOpen ? 'Open' : 'Closed'}
+      </span>
+      {#if pendingSuggestionCount > 0}
+        <span class="evidence-badge">{pendingSuggestionCount}</span>
+      {/if}
+    </a>
   </div>
 
   <div class="card assistants-card">
@@ -425,7 +480,7 @@
               <span>{assistant.department || '-'}</span>
               <span>{assistant.phone || 'No phone'}</span>
               {#if isDepartmentHead}
-                <button class="btn btn-danger btn-sm" on:click={() => deleteUser(assistant.id, assistant.fullName)}>
+                <button class="btn btn-danger btn-sm" on:click={() => requestDeleteUser(assistant.id, assistant.fullName)}>
                   Delete
                 </button>
               {/if}
@@ -725,6 +780,17 @@
       </div>
     </div>
   {/if}
+
+  <ConfirmDialog
+    open={!!pendingDeleteUser}
+    title="Delete account?"
+    message={`Delete ${pendingDeleteUser?.label || 'this account'}? This disables the account and removes it from active use.`}
+    confirmLabel="Delete account"
+    tone="danger"
+    busy={deleteLoading}
+    on:cancel={() => pendingDeleteUser = null}
+    on:confirm={deleteUser}
+  />
 </DashboardLayout>
 
 <style>
@@ -747,6 +813,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 1.1rem 1.25rem;
+    background:
+      radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 8rem),
+      rgba(255, 255, 255, 0.94);
   }
 
   .stat-label {
@@ -778,6 +847,26 @@
   }
 
   .evidence-btn { position: relative; }
+  .curriculum-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .curriculum-status {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #991b1b;
+    background: #fee2e2;
+  }
+  .curriculum-status.open {
+    color: #065f46;
+    background: #d1fae5;
+  }
   .evidence-badge {
     position: absolute;
     top: -6px;
@@ -846,11 +935,21 @@
   }
 
   .assistant-meta {
-    display: grid;
-    gap: 0.25rem;
-    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     color: var(--gray-600);
     font-size: 0.875rem;
+  }
+
+  .assistant-meta span {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.38rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(241, 245, 249, 0.9);
   }
 
   .card-header {
@@ -870,11 +969,11 @@
   .success-title { background: #d1fae5; color: #065f46; }
 
   .filter-select {
-    padding: 0.375rem 0.75rem;
-    border: 1px solid var(--gray-300);
-    border-radius: var(--radius);
+    padding: 0.6rem 0.9rem;
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    border-radius: 999px;
     font-size: 0.8125rem;
-    background: white;
+    background: rgba(255, 255, 255, 0.92);
   }
 
   .feedback-item {
@@ -936,6 +1035,6 @@
       flex-direction: column;
       align-items: flex-start;
     }
-    .assistant-meta { text-align: left; }
+    .assistant-meta { justify-content: flex-start; }
   }
 </style>

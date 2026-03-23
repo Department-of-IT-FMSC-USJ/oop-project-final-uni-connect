@@ -143,7 +143,24 @@ public class UserService implements UserDetailsService {
                 .managedByDepartmentHeadId(resolveManagingHeadId(currentUser, request.getRole()))
                 .build();
 
-        return userRepository.save(user);
+        User created = userRepository.save(user);
+
+        // If mentors are created later, allocate any still-unallocated undergraduates.
+        if (created.getRole() == Role.ACADEMIC_MENTOR) {
+            List<User> undergraduates = userRepository.findByRoleAndActiveTrue(Role.UNDERGRADUATE);
+            for (User undergraduate : undergraduates) {
+                if (undergraduate.getId() == null) {
+                    continue;
+                }
+                try {
+                    studentAllocationService.allocateStudentAuto(undergraduate.getId().intValue());
+                } catch (Exception ignored) {
+                    // Ignore already allocated / capacity / no matching mentor constraints.
+                }
+            }
+        }
+
+        return created;
     }
 
     private String resolveDepartment(User currentUser, CreateAccountRequest request) {

@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
   import { api, getCurrentUser, getRoleDashboardPath, isHodWorkspaceRole } from '../../lib/api.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import { toast } from '../../lib/toast.js';
 
   export let navItems = [];
   export let activeItem = '';
@@ -22,6 +24,8 @@
   let selectedUser = null;
   let detailLoading = false;
   let detailError = '';
+  let pendingDeleteUser = null;
+  let deleteLoading = false;
 
   onMount(() => {
     if (!user) {
@@ -99,22 +103,35 @@
     }
   }
 
-  async function deleteAccount(entry) {
+  function requestDeleteAccount(entry) {
     if (!canDeleteUsers) return;
-    if (!window.confirm(`Delete ${entry.fullName || 'this account'}? This will disable the account and remove it from active use.`)) {
-      return;
-    }
+    pendingDeleteUser = entry;
+  }
 
+  async function deleteAccount() {
+    if (!pendingDeleteUser) return;
+    deleteLoading = true;
     try {
-      await api.delete(`/users/${entry.id}`);
+      await api.delete(`/users/${pendingDeleteUser.id}`);
       await loadUsers();
-      if (selectedUser?.id === entry.id) {
+      if (selectedUser?.id === pendingDeleteUser.id) {
         closeModal();
       }
+      toast.success({
+        title: 'Account deleted',
+        message: `${pendingDeleteUser.fullName || 'The selected user'} has been removed from active use.`
+      });
+      pendingDeleteUser = null;
     } catch (e) {
       error = (e?.status === 404 || e?.status === 405)
         ? 'The backend is still running without the latest delete account route. Restart the backend server and try again.'
         : (e?.data?.message || 'Failed to delete the selected account.');
+      toast.error({
+        title: 'Delete failed',
+        message: error
+      });
+    } finally {
+      deleteLoading = false;
     }
   }
 
@@ -194,14 +211,16 @@
                   <td>{entry.department || '-'}</td>
                   <td>{isMentorMode ? (entry.phone || '-') : (entry.cumulativePoints || 0)}</td>
                   <td>
+                    <div class="action-group">
                     <button class="btn btn-outline btn-sm" on:click={() => viewUserProfile(entry.id)}>
                       View Profile
                     </button>
                     {#if canDeleteUsers}
-                      <button class="btn btn-danger btn-sm action-gap" on:click={() => deleteAccount(entry)}>
-                        Delete
+                      <button class="btn btn-danger btn-sm" on:click={() => requestDeleteAccount(entry)}>
+                        Delete Account
                       </button>
                     {/if}
+                    </div>
                   </td>
                 </tr>
               {/each}
@@ -265,6 +284,17 @@
       </div>
     </div>
   {/if}
+
+  <ConfirmDialog
+    open={!!pendingDeleteUser}
+    title="Delete account?"
+    message={`Delete ${pendingDeleteUser?.fullName || 'this account'}? This disables the account and removes it from active use.`}
+    confirmLabel="Delete account"
+    tone="danger"
+    busy={deleteLoading}
+    on:cancel={() => pendingDeleteUser = null}
+    on:confirm={deleteAccount}
+  />
 </DashboardLayout>
 
 <style>
@@ -407,12 +437,15 @@
   }
 
   .btn-sm {
-    padding: 0.4rem 0.8rem;
+    padding: 0.48rem 0.85rem;
     font-size: 0.8rem;
   }
 
-  .action-gap {
-    margin-left: 0.5rem;
+  .action-group {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
   }
 
   .profile-modal {
@@ -495,6 +528,10 @@
 
     .detail-grid {
       grid-template-columns: 1fr;
+    }
+
+    .action-group :global(.btn) {
+      width: 100%;
     }
   }
 </style>

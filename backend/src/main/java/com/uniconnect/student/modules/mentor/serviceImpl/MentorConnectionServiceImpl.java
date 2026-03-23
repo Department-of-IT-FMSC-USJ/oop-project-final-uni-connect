@@ -9,10 +9,18 @@ import com.uniconnect.student.modules.mentor.exception.InsufficientPointsExcepti
 import com.uniconnect.student.modules.points.repository.ContributionPointsRepository;
 import com.uniconnect.student.modules.mentor.repository.MentorConnectionRepository;
 import com.uniconnect.student.modules.mentor.service.MentorConnectionService;
+import com.uniconnect.model.User;
+import com.uniconnect.repository.UserRepository;
+import com.uniconnect.service.SystemNotificationService;
+import com.uniconnect.student.modules.recommendation.dto.RecommendationResponseDTO;
+import com.uniconnect.student.modules.recommendation.service.MentorRecommendationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 /**
@@ -24,14 +32,23 @@ public class MentorConnectionServiceImpl implements MentorConnectionService {
 
     private final MentorConnectionRepository mentorConnectionRepository;
     private final ContributionPointsRepository contributionPointsRepository;
+    private final MentorRecommendationService mentorRecommendationService;
+    private final UserRepository userRepository;
+    private final SystemNotificationService systemNotificationService;
 
     @Value("${mentor.industry.min-points}")
     private Integer industryMentorMinPoints;
 
     public MentorConnectionServiceImpl(MentorConnectionRepository mentorConnectionRepository,
-                                        ContributionPointsRepository contributionPointsRepository) {
+                                        ContributionPointsRepository contributionPointsRepository,
+                                        MentorRecommendationService mentorRecommendationService,
+                                        UserRepository userRepository,
+                                        SystemNotificationService systemNotificationService) {
         this.mentorConnectionRepository = mentorConnectionRepository;
         this.contributionPointsRepository = contributionPointsRepository;
+        this.mentorRecommendationService = mentorRecommendationService;
+        this.userRepository = userRepository;
+        this.systemNotificationService = systemNotificationService;
     }
 
     /**
@@ -54,6 +71,9 @@ public class MentorConnectionServiceImpl implements MentorConnectionService {
         if (requestDTO.getMentorType() == MentorType.Industry) {
             Integer totalPoints = contributionPointsRepository.getTotalPointsByStudentId(
                     requestDTO.getStudentId());
+            if (totalPoints == null) {
+                totalPoints = 0;
+            }
 
             if (totalPoints < industryMentorMinPoints) {
                 throw new InsufficientPointsException(
@@ -86,6 +106,71 @@ public class MentorConnectionServiceImpl implements MentorConnectionService {
         return connections.stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public MentorConnectionResponseDTO autoAssignIndustryMentor(Integer studentId) {
+        User student = userRepository.findById(studentId.longValue())
+                .orElseThrow(() -> new IllegalArgumentException("Student not found."));
+
+        Integer totalPoints = Optional.ofNullable(contributionPointsRepository.getTotalPointsByStudentId(studentId)).orElse(0);
+        if (totalPoints < industryMentorMinPoints) {
+            throw new InsufficientPointsException(
+                    "Industry mentor recommendation requires at least " + industryMentorMinPoints + " points.");
+        }
+
+        List<MentorConnection> approvedIndustryConnections = mentorConnectionRepository.findByStudentIdOrderByCreatedDateDesc(studentId)
+                .stream()
+                .filter(connection -> connection.getMentorType() == MentorType.Industry)
+                .filter(connection -> connection.getConnectionStatus() == ConnectionStatus.Approved)
+                .toList();
+        if (!approvedIndustryConnections.isEmpty()) {
+            return mapToResponseDTO(approvedIndustryConnections.get(0));
+        }
+
+        List<RecommendationResponseDTO> recommendations = mentorRecommendationService.generateRecommendations(studentId);
+        if (recommendations == null || recommendations.isEmpty()) {
+            throw new IllegalStateException(
+                    "No matching industry mentor found. Update your interests or wait for mentor profiles.");
+        }
+
+        int topScore = recommendations.stream()
+                .map(recommendation -> Optional.ofNullable(recommendation.getMatchScore()).orElse(0))
+                .max(Comparator.naturalOrder())
+                .orElse(0);
+
+        List<RecommendationResponseDTO> topRecommendations = recommendations.stream()
+                .filter(recommendation -> Optional.ofNullable(recommendation.getMatchScore()).orElse(0) == topScore)
+                .toList();
+        RecommendationResponseDTO chosen = topRecommendations.get(ThreadLocalRandom.current().nextInt(topRecommendations.size()));
+
+        if (chosen.getMentorId() == null) {
+            throw new IllegalStateException("No eligible industry mentor available right now.");
+        }
+
+        MentorConnection connection = new MentorConnection();
+        connection.setStudentId(studentId);
+        connection.setMentorId(chosen.getMentorId());
+        connection.setMentorType(MentorType.Industry);
+        connection.setConnectionStatus(ConnectionStatus.Approved);
+
+        MentorConnection saved = mentorConnectionRepository.save(connection);
+
+        systemNotificationService.createNotification(
+                student.getId(),
+                "Industry Mentor Assigned",
+                "You have been matched with " + chosen.getMentorName() + " (" + topScore + "% match).",
+                "/undergraduate/mentors"
+        );
+
+        systemNotificationService.createNotification(
+                chosen.getMentorId().longValue(),
+                "New Student Match",
+                student.getFullName() + " was matched with you through the recommendation flow.",
+                "/industry-mentor/students"
+        );
+
+        return mapToResponseDTO(saved);
     }
 
     @Override

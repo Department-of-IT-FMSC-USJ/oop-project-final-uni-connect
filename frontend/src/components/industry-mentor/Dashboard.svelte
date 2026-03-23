@@ -27,6 +27,7 @@
   let suggestionDescription = '';
   let suggestionError = '';
   let suggestionLoading = false;
+  let submissionOpen = false;
 
   let filteredSessions = [];
   $: {
@@ -49,6 +50,13 @@
       students = approved;
       totalStudents = approved.length;
     } catch (e) { console.error('Failed to load student connections', e); }
+
+    try {
+      const windowRes = await api.get('/suggestions/submission-window', { cache: false });
+      submissionOpen = !!windowRes?.data?.open;
+    } catch (e) {
+      submissionOpen = false;
+    }
   });
 
   async function createSession() {
@@ -88,12 +96,12 @@
 
 <DashboardLayout navItems={industryMentorNavItems} activeItem="dashboard" pageTitle="Industry Mentor Dashboard">
   <div class="actions-row">
-    <button class="btn btn-primary" on:click={() => showCreateSession = true}>
+    <a href="/industry-mentor/sessions" class="btn btn-primary">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
       </svg>
-      Session Create
-    </button>
+      Manage Sessions
+    </a>
     <a href="/industry-mentor/students" class="btn btn-outline">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
@@ -156,12 +164,12 @@
         {/each}
       </div>
 
-      <button class="btn btn-success suggestion-btn" on:click={() => showSuggestionForm = true}>
+      <a href="/industry-mentor/suggestions" class="btn btn-success suggestion-btn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
         </svg>
-        Curriculum Suggestions
-      </button>
+        {submissionOpen ? 'Submit Curriculum Suggestions' : 'Curriculum Suggestions (Closed)'}
+      </a>
     </div>
   </div>
 

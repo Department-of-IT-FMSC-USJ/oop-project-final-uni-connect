@@ -11,5 +11,7 @@ public interface CurriculumSuggestionRepository extends JpaRepository<Curriculum
 
     List<CurriculumSuggestion> findByMentorIdOrderBySubmissionDateDesc(Integer mentorId);
 
+    List<CurriculumSuggestion> findAllByOrderBySubmissionDateDesc();
+
     boolean existsByMentorIdAndSuggestionTitle(Integer mentorId, String suggestionTitle);
 }

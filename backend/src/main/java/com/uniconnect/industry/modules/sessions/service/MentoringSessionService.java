@@ -10,4 +10,6 @@ public interface MentoringSessionService {
     SessionResponseDTO createSession(SessionRequestDTO requestDTO);
 
     List<SessionResponseDTO> getSessionsByMentor(Integer mentorId);
+
+    void cancelSession(Integer sessionId, Integer mentorId);
 }

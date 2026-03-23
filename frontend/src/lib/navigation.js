@@ -24,6 +24,12 @@ export const hodNavItems = [
     icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>'
   },
   {
+    id: 'curriculum',
+    label: 'Curriculum',
+    href: '/hod/curriculum-suggestions',
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 8h8"/><path d="M9 12h6"/></svg>'
+  },
+  {
     id: 'profile',
     label: 'Profile',
     href: '/hod/profile',

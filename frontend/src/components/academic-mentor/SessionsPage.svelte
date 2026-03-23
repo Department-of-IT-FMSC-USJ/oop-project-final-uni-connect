@@ -3,6 +3,8 @@
   import { api, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
   import { academicMentorNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
   let sessions = [];
@@ -11,11 +13,20 @@
   let error = '';
   let showCreate = false;
   let form = initialForm();
+  let refreshTimer = null;
+  let pendingCancelSession = null;
+  let cancelLoading = false;
 
-  onMount(async () => {
+  onMount(() => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'ACADEMIC_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
-    await Promise.all([loadSessions(), loadStudents()]);
+    Promise.all([loadSessions(), loadStudents()]);
+    refreshTimer = window.setInterval(() => loadSessions(), 15000);
+    return () => {
+      if (refreshTimer) {
+        window.clearInterval(refreshTimer);
+      }
+    };
   });
 
   function initialForm() {
@@ -144,8 +155,38 @@
       form = initialForm();
       showCreate = false;
       await loadSessions();
+      toast.success({
+        title: 'Session created',
+        message: 'Students and the HOD workspace were notified.'
+      });
     } catch (e) {
       error = e?.data?.message || 'Failed to create session.';
+      toast.error({ title: 'Create failed', message: error });
+    }
+  }
+
+  function requestCancelSession(session) {
+    pendingCancelSession = session;
+  }
+
+  async function cancelSession() {
+    if (!pendingCancelSession) return;
+    const mentorId = user.userId || user.id;
+    cancelLoading = true;
+    try {
+      await api.delete(`/academic/sessions/${pendingCancelSession.sessionId}?mentorId=${mentorId}`);
+      pendingCancelSession = null;
+      await loadSessions();
+      toast.success({
+        title: 'Session cancelled',
+        message: 'Students and the HOD workspace were notified.'
+      });
+    } catch (e) {
+      const message = e?.data?.message || 'Failed to cancel session.';
+      error = message;
+      toast.error({ title: 'Cancel failed', message });
+    } finally {
+      cancelLoading = false;
     }
   }
 
@@ -191,6 +232,9 @@
                 <span class="badge badge-info">{session.sessionType === 'ONE_TO_ONE' ? 'One to one' : 'Group'}</span>
                 <span class="badge badge-soft">{sessionAudienceLabel(session)}</span>
                 <strong>{session.sessionDate} at {session.sessionTime}</strong>
+                <div class="session-actions">
+                  <button class="btn btn-danger btn-sm" on:click={() => requestCancelSession(session)}>Cancel Session</button>
+                </div>
               </div>
             </article>
           {/each}
@@ -276,6 +320,17 @@
       </div>
     </div>
   {/if}
+
+  <ConfirmDialog
+    open={!!pendingCancelSession}
+    title="Cancel session?"
+    message={`Cancel "${pendingCancelSession?.sessionTitle || 'this session'}"? Students and the HOD workspace will be notified.`}
+    confirmLabel="Cancel session"
+    tone="danger"
+    busy={cancelLoading}
+    on:cancel={() => pendingCancelSession = null}
+    on:confirm={cancelSession}
+  />
 </DashboardLayout>
 
 <style>
@@ -286,6 +341,7 @@
   .session-list { display: grid; gap: 1rem; }
   .session-card { border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 1rem; display: flex; justify-content: space-between; gap: 1rem; }
   .session-meta { display: grid; gap: 0.6rem; text-align: right; min-width: 220px; }
+  .session-actions { display: flex; justify-content: flex-end; }
   .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
   .full-width { grid-column: 1 / -1; }
   .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--gray-600); }

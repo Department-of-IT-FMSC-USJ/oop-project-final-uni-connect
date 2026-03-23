@@ -10,7 +10,9 @@ import com.uniconnect.academic.modules.sessions.service.MentoringSessionService;
 import com.uniconnect.academic.modules.allocations.repository.StudentAllocationRepository;
 import com.uniconnect.academic.modules.allocations.entity.StudentAllocation;
 import com.uniconnect.model.User;
+import com.uniconnect.model.Role;
 import com.uniconnect.repository.UserRepository;
+import com.uniconnect.service.SystemNotificationService;
 import com.uniconnect.student.modules.feedback.entity.MentorSession;
 import com.uniconnect.student.modules.feedback.enums.SessionStatus;
 import com.uniconnect.student.modules.feedback.repository.MentorSessionRepository;
@@ -21,7 +23,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -38,19 +42,22 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
     private final MentorConnectionRepository mentorConnectionRepository;
     private final MentorSessionRepository mentorSessionRepository;
     private final UserRepository userRepository;
+    private final SystemNotificationService systemNotificationService;
 
     public MentoringSessionServiceImpl(
             MentoringSessionRepository mentoringSessionRepository,
             StudentAllocationRepository studentAllocationRepository,
             MentorConnectionRepository mentorConnectionRepository,
             MentorSessionRepository mentorSessionRepository,
-            UserRepository userRepository
+            UserRepository userRepository,
+            SystemNotificationService systemNotificationService
     ) {
         this.mentoringSessionRepository = mentoringSessionRepository;
         this.studentAllocationRepository = studentAllocationRepository;
         this.mentorConnectionRepository = mentorConnectionRepository;
         this.mentorSessionRepository = mentorSessionRepository;
         this.userRepository = userRepository;
+        this.systemNotificationService = systemNotificationService;
     }
 
     /**
@@ -110,6 +117,7 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
 
         // Provision per-student feedback sessions for this academic mentor.
         provisionMentorSessions(savedSession, targeting.targetStudentIds());
+        notifySessionCreated(savedSession, targeting.targetStudentIds());
 
         return mapToResponseDTO(savedSession);
     }
@@ -230,6 +238,20 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public void cancelSession(Integer sessionId, Integer mentorId) {
+        MentoringSession session = mentoringSessionRepository.findById(sessionId)
+                .orElseThrow(() -> new IllegalArgumentException("Session not found."));
+
+        if (!Objects.equals(session.getMentorId(), mentorId)) {
+            throw new IllegalArgumentException("You can only cancel your own sessions.");
+        }
+
+        List<Integer> targetStudentIds = parseStudentIds(session.getTargetStudentIds());
+        mentoringSessionRepository.delete(session);
+        notifySessionCancelled(session, targetStudentIds);
+    }
+
     /**
      * Map MentoringSession entity to SessionResponseDTO.
      */
@@ -252,6 +274,81 @@ public class MentoringSessionServiceImpl implements MentoringSessionService {
 
     private String studentIdsToCsv(List<Integer> studentIds) {
         return studentIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    private List<Integer> parseStudentIds(String csv) {
+        if (csv == null || csv.isBlank()) {
+            return List.of();
+        }
+        return java.util.Arrays.stream(csv.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .map(Integer::valueOf)
+                .distinct()
+                .toList();
+    }
+
+    private void notifySessionCreated(MentoringSession session, List<Integer> targetStudentIds) {
+        String title = "Academic Session Created";
+        String message = "A new session \"" + session.getSessionTitle() + "\" is scheduled on "
+                + session.getSessionDate() + " at " + session.getSessionTime() + ".";
+
+        notifyStudents(targetStudentIds, title, message);
+        notifyHodWorkspace(session.getMentorId(), title, message);
+    }
+
+    private void notifySessionCancelled(MentoringSession session, List<Integer> targetStudentIds) {
+        String title = "Academic Session Cancelled";
+        String message = "The session \"" + session.getSessionTitle() + "\" scheduled on "
+                + session.getSessionDate() + " at " + session.getSessionTime() + " was cancelled.";
+
+        notifyStudents(targetStudentIds, title, message);
+        notifyHodWorkspace(session.getMentorId(), title, message);
+    }
+
+    private void notifyStudents(List<Integer> targetStudentIds, String title, String message) {
+        if (targetStudentIds == null || targetStudentIds.isEmpty()) {
+            return;
+        }
+        for (Integer studentId : targetStudentIds) {
+            if (studentId == null) {
+                continue;
+            }
+            systemNotificationService.createNotification(studentId.longValue(), title, message, "/undergraduate/mentors");
+        }
+    }
+
+    private void notifyHodWorkspace(Integer mentorId, String title, String message) {
+        if (mentorId == null) {
+            return;
+        }
+        User mentor = userRepository.findById(mentorId.longValue()).orElse(null);
+        String mentorDepartment = mentor == null ? null : mentor.getDepartment();
+
+        List<User> recipients = new ArrayList<>(
+                userRepository.findByRoleAndActiveTrue(Role.DEPARTMENT_HEAD).stream()
+                        .filter(user -> sameDepartment(user.getDepartment(), mentorDepartment))
+                        .toList()
+        );
+        recipients.addAll(
+                userRepository.findByRoleAndActiveTrue(Role.DEPARTMENT_ASSISTANT).stream()
+                        .filter(user -> sameDepartment(user.getDepartment(), mentorDepartment))
+                        .toList()
+        );
+
+        for (User recipient : recipients) {
+            if (recipient.getId() == null) {
+                continue;
+            }
+            systemNotificationService.createNotification(recipient.getId(), title, message, "/hod/dashboard");
+        }
+    }
+
+    private boolean sameDepartment(String left, String right) {
+        if (left == null || left.trim().isEmpty() || right == null || right.trim().isEmpty()) {
+            return true;
+        }
+        return left.trim().equalsIgnoreCase(right.trim());
     }
 
     private record Targeting(String audienceMode, String targetYearOfStudy, String targetStudentIdsCsv, List<Integer> targetStudentIds) {

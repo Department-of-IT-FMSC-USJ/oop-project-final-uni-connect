@@ -4,9 +4,12 @@ import com.uniconnect.student.common.dto.ApiResponseDTO;
 import com.uniconnect.student.modules.mentor.dto.MentorConnectionRequestDTO;
 import com.uniconnect.student.modules.mentor.dto.MentorConnectionResponseDTO;
 import com.uniconnect.student.modules.mentor.service.MentorConnectionService;
+import com.uniconnect.model.Role;
+import com.uniconnect.model.User;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -77,5 +80,23 @@ public class MentorConnectionController {
                 "Mentor connections retrieved successfully", connections);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @PostMapping("/industry/auto-assign/{studentId}")
+    public ResponseEntity<ApiResponseDTO<MentorConnectionResponseDTO>> autoAssignIndustryMentor(
+            @AuthenticationPrincipal User currentUser,
+            @PathVariable("studentId") Integer studentId) {
+
+        if (currentUser.getRole() == Role.UNDERGRADUATE
+                && !currentUser.getId().equals(studentId.longValue())) {
+            return new ResponseEntity<>(ApiResponseDTO.error("You can only trigger mentor assignment for your account."),
+                    HttpStatus.FORBIDDEN);
+        }
+
+        MentorConnectionResponseDTO responseDTO = mentorConnectionService.autoAssignIndustryMentor(studentId);
+        ApiResponseDTO<MentorConnectionResponseDTO> response = ApiResponseDTO.success(
+                "Industry mentor assigned successfully", responseDTO);
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 }
