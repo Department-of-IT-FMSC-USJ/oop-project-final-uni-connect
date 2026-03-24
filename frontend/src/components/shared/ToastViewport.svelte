@@ -52,7 +52,7 @@
     grid-template-columns: 32px 1fr;
     align-items: start;
     gap: 0.75rem;
-    border-radius: 10px;
+    border-radius: var(--radius);
     padding: 1rem;
     border: 1px solid var(--border-light);
     background: var(--bg-main);
@@ -77,30 +77,30 @@
     justify-content: center;
     font-size: 0.85rem;
     font-weight: 700;
-    background: #f0f4f8;
-    color: var(--accent);
+    background: var(--primary-50);
+    color: var(--primary);
     border: 1px solid var(--border-light);
     flex-shrink: 0;
   }
 
   .toast.success .toast-icon {
-    background: rgba(16, 185, 129, 0.1);
+    background: var(--success-light);
     color: var(--success);
   }
 
   .toast.warning .toast-icon {
-    background: rgba(245, 158, 11, 0.1);
+    background: var(--warning-light);
     color: var(--warning);
   }
 
   .toast.error .toast-icon {
-    background: rgba(239, 68, 68, 0.1);
+    background: var(--danger-light);
     color: var(--danger);
   }
 
   .toast.info .toast-icon {
-    background: rgba(37, 99, 235, 0.1);
-    color: var(--accent);
+    background: var(--primary-100);
+    color: var(--primary);
   }
 
   .toast-body {
@@ -132,7 +132,7 @@
   .toast-close {
     width: 28px;
     height: 28px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-muted);
     font-size: 0.8rem;

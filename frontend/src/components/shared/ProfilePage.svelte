@@ -324,8 +324,8 @@
 </DashboardLayout>
 
 <style>
-  .email-link { color: var(--primary, #111); text-decoration: none; }
-  .email-link:hover { text-decoration: underline; color: var(--accent, #555); }
+  .email-link { color: var(--primary); text-decoration: none; }
+  .email-link:hover { text-decoration: underline; color: var(--primary-dark); }
   .profile-container {
     max-width: 800px;
   }
@@ -336,8 +336,8 @@
     font-size: 0.8125rem;
     margin-bottom: 1rem;
   }
-  .alert-error { background: #fee2e2; color: #991b1b; }
-  .alert-success { background: #d1fae5; color: #065f46; }
+  .alert-error { background: var(--danger-light); color: #991b1b; }
+  .alert-success { background: var(--success-light); color: #065f46; }
 
   .profile-card {
     padding: 2rem;
@@ -349,15 +349,15 @@
     gap: 1.5rem;
     margin-bottom: 2rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border-light);
   }
 
   .avatar-lg {
     width: 72px;
     height: 72px;
     border-radius: 50%;
-    background: var(--primary);
-    color: white;
+    background: var(--primary-50);
+    color: var(--primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -367,19 +367,19 @@
   }
 
   .profile-meta { flex: 1; }
-  .profile-meta h2 { font-size: 1.375rem; font-weight: 600; color: var(--gray-900); }
+  .profile-meta h2 { font-size: 1.375rem; font-weight: 600; color: var(--text-main); }
   .role-badge {
     display: inline-block;
-    background: var(--gray-100);
-    color: var(--gray-600);
+    background: var(--primary-50);
+    color: var(--primary);
     padding: 0.125rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
     font-size: 0.75rem;
     font-weight: 500;
     text-transform: uppercase;
     margin-top: 0.25rem;
   }
-  .email { font-size: 0.875rem; color: var(--gray-500); margin-top: 0.25rem; }
+  .email { font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem; }
 
   .detail-grid {
     display: grid;
@@ -392,9 +392,9 @@
     flex-direction: column;
     gap: 0.25rem;
   }
-  .detail-label { font-size: 0.75rem; font-weight: 500; color: var(--gray-500); text-transform: uppercase; }
-  .detail-value { font-size: 0.9375rem; color: var(--gray-800); }
-  .detail-value.points { color: var(--accent); font-weight: 700; font-size: 1.25rem; }
+  .detail-label { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; }
+  .detail-value { font-size: 0.9375rem; color: var(--text-main); }
+  .detail-value.points { color: var(--primary); font-weight: 700; font-size: 1.25rem; }
 
   .form-grid {
     display: grid;
@@ -406,7 +406,7 @@
     display: block;
     font-size: 0.8125rem;
     font-weight: 500;
-    color: var(--gray-700);
+    color: var(--text-secondary);
     margin-bottom: 0.375rem;
   }
   .form-actions {
@@ -418,13 +418,13 @@
   .loading-card {
     text-align: center;
     padding: 3rem;
-    color: var(--gray-400);
+    color: var(--text-muted);
   }
 
   .mentor-profile-card {
     padding: 2rem;
     margin-top: 1.5rem;
-    background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%);
+    background: linear-gradient(135deg, rgba(79, 124, 219, 0.04) 0%, rgba(107, 147, 228, 0.04) 100%);
   }
 
   .section-header {
@@ -433,14 +433,14 @@
     align-items: flex-start;
     margin-bottom: 1.5rem;
     padding-bottom: 1rem;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border-light);
   }
 
   .section-eyebrow {
     font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
-    color: var(--gray-500);
+    color: var(--text-muted);
     letter-spacing: 1px;
     margin-bottom: 0.25rem;
   }
@@ -448,7 +448,7 @@
   .section-header h3 {
     font-size: 1.25rem;
     font-weight: 600;
-    color: var(--gray-800);
+    color: var(--text-main);
     margin: 0;
   }
 
@@ -464,22 +464,22 @@
 
   .helper-text {
     font-size: 0.75rem;
-    color: var(--gray-500);
+    color: var(--text-muted);
     margin-top: 0.375rem;
   }
 
   .input {
     width: 100%;
     padding: 0.5rem 0.75rem;
-    border: 1px solid var(--gray-300);
-    border-radius: var(--radius);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius-sm);
     font-size: 0.875rem;
-    background: white;
+    background: var(--bg-main);
   }
 
   .input:focus {
     outline: none;
-    border-color: var(--blue-400);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 219, 0.12);
   }
 </style>

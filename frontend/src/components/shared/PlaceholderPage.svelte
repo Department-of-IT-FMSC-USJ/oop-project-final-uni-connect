@@ -47,7 +47,7 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--primary);
     margin-bottom: 0.75rem;
   }
 
@@ -55,11 +55,11 @@
     font-size: 1.875rem;
     line-height: 1.2;
     margin-bottom: 0.75rem;
-    color: var(--gray-900);
+    color: var(--text-main);
   }
 
   .description {
-    color: var(--gray-600);
+    color: var(--text-secondary);
     font-size: 1rem;
     max-width: 42rem;
   }

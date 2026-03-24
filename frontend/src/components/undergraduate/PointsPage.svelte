@@ -74,16 +74,18 @@
 </DashboardLayout>
 
 <style>
-  .hero-card { display:flex; justify-content:space-between; gap:1rem; padding:2rem; margin-bottom:1.5rem; background:linear-gradient(135deg,#fff,#f6faff); }
-  .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--accent); margin-bottom:0.5rem; }
-  .hero-copy { color:var(--gray-600); max-width:40rem; }
-  .hero-count { display:block; font-size:2rem; font-weight:700; color:var(--primary); }
-  .hero-label { color:var(--gray-500); font-size:0.85rem; }
+  .hero-card { display:flex; justify-content:space-between; gap:1rem; padding:2rem; margin-bottom:1.5rem; background:linear-gradient(135deg, var(--bg-main, #FFFFFF), var(--primary-50, #EEF2FB)); border:1px solid var(--border-light, #E2E8F0); border-radius:var(--radius, 12px); }
+  .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--primary, #4F7CDB); margin-bottom:0.5rem; }
+  .hero-copy { color:var(--text-secondary, #475569); max-width:40rem; }
+  .hero-count { display:block; font-size:2rem; font-weight:700; color:var(--primary, #4F7CDB); }
+  .hero-label { color:var(--text-muted, #94A3B8); font-size:0.85rem; }
   .table-wrapper { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; }
-  th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--gray-200); text-align:left; }
-  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--gray-500); }
-  .empty-state { color:var(--gray-500); }
-  .alert { padding:0.8rem 1rem; border-radius:var(--radius); margin-bottom:1rem; }
-  .alert-error { background:#fee2e2; color:#991b1b; }
+  th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--border-light, #E2E8F0); text-align:left; }
+  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted, #94A3B8); background:var(--bg-secondary, #F1F5F9); }
+  tbody tr { transition:background 0.18s ease; }
+  tbody tr:hover { background:var(--primary-50, #EEF2FB); }
+  .empty-state { color:var(--text-muted, #94A3B8); }
+  .alert { padding:0.8rem 1rem; border-radius:var(--radius-sm, 8px); margin-bottom:1rem; }
+  .alert-error { background:var(--danger-light, #FEE2E2); color:#991b1b; }
 </style>

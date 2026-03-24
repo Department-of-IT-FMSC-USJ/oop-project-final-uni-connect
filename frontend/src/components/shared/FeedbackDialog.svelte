@@ -110,14 +110,14 @@
 
   .close-btn {
     background: none;
-    color: var(--gray-400);
+    color: var(--text-muted);
     padding: 0.25rem;
-    border-radius: 4px;
+    border-radius: var(--radius-sm);
   }
-  .close-btn:hover { color: var(--gray-600); background: var(--gray-100); }
+  .close-btn:hover { color: var(--text-main); background: var(--bg-secondary); }
 
   .modal-desc {
-    color: var(--gray-500);
+    color: var(--text-secondary);
     font-size: 0.875rem;
     margin-bottom: 1.5rem;
   }
@@ -130,7 +130,7 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--gray-700);
+    color: var(--text-secondary);
     margin-bottom: 0.5rem;
   }
 
@@ -154,13 +154,14 @@
     display: block;
     font-size: 0.875rem;
     font-weight: 500;
-    color: var(--gray-700);
+    color: var(--text-secondary);
     margin-bottom: 0.375rem;
   }
 
   textarea.input {
     resize: vertical;
     min-height: 80px;
+    border-radius: var(--radius-sm);
   }
 
   .error {

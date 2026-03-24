@@ -24,4 +24,7 @@ public interface MentoringSessionRepository extends JpaRepository<MentoringSessi
      * Used to prevent duplicate sessions.
      */
     boolean existsByMentorIdAndSessionDateAndSessionTime(Integer mentorId, LocalDate sessionDate, LocalTime sessionTime);
+
+    List<MentoringSession> findByMentorIdAndSessionDateBetweenOrderBySessionDateDescSessionTimeDesc(
+            Integer mentorId, LocalDate startDate, LocalDate endDate);
 }

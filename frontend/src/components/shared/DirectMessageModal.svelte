@@ -211,7 +211,7 @@
     align-items: center;
     gap: 1rem;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--gray-200, #e5e7eb);
+    border-bottom: 1px solid var(--border-light);
     flex-shrink: 0;
   }
 
@@ -225,7 +225,7 @@
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: var(--gray-900, #111);
+    background: var(--primary);
     color: #fff;
     display: flex;
     align-items: center;
@@ -238,11 +238,12 @@
   .chat-name {
     font-size: 1rem;
     font-weight: 600;
+    color: var(--text-main);
     margin: 0;
   }
 
   .chat-email {
-    color: var(--gray-500, #6b7280);
+    color: var(--text-secondary);
     font-size: 0.8rem;
     margin: 0;
   }
@@ -252,7 +253,7 @@
     padding: 0.5rem 1.5rem;
     color: #92400e;
     font-size: 0.78rem;
-    background: #fffbeb;
+    background: var(--warning-light);
     flex-shrink: 0;
   }
 
@@ -263,7 +264,7 @@
   }
 
   .alert-error {
-    background: #fee2e2;
+    background: var(--danger-light);
     color: #991b1b;
   }
 
@@ -280,15 +281,15 @@
   .message-bubble {
     max-width: 75%;
     padding: 0.75rem 1rem;
-    border-radius: 16px 16px 16px 4px;
-    background: var(--gray-100, #f3f4f6);
+    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
+    background: var(--bg-secondary);
     align-self: flex-start;
   }
 
   .message-bubble.is-own {
     align-self: flex-end;
-    background: #dbeafe;
-    border-radius: 16px 16px 4px 16px;
+    background: var(--primary-50);
+    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
   }
 
   .message-meta {
@@ -297,12 +298,12 @@
     gap: 1rem;
     margin-bottom: 0.25rem;
     font-size: 0.7rem;
-    color: var(--gray-500, #6b7280);
+    color: var(--text-muted);
   }
 
   .message-bubble p {
     white-space: pre-wrap;
-    color: var(--gray-800, #1f2937);
+    color: var(--text-main);
     margin: 0;
     font-size: 0.9rem;
     line-height: 1.5;
@@ -313,8 +314,8 @@
     gap: 0.6rem;
     flex-shrink: 0;
     padding: 1rem 1.5rem;
-    border-top: 1px solid var(--gray-200, #e5e7eb);
-    background: var(--gray-50, #f9fafb);
+    border-top: 1px solid var(--border-light);
+    background: var(--bg-alt);
   }
 
   .composer textarea {
@@ -328,7 +329,7 @@
   }
 
   .empty-state {
-    color: var(--gray-500, #6b7280);
+    color: var(--text-muted);
     padding: 2rem 0;
     text-align: center;
     margin: auto 0;
@@ -336,7 +337,7 @@
 
   .close-btn {
     background: transparent;
-    color: var(--gray-500, #6b7280);
+    color: var(--text-muted);
     font-size: 1.2rem;
     padding: 0.25rem;
     cursor: pointer;
@@ -344,7 +345,7 @@
   }
 
   .close-btn:hover {
-    color: var(--gray-800, #1f2937);
+    color: var(--text-main);
   }
 
   @media (max-width: 640px) {

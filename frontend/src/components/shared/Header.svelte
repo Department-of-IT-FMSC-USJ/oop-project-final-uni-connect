@@ -385,13 +385,14 @@
     left: 0;
     right: 0;
     height: var(--header-height);
-    background: rgba(255, 255, 255, 0.96);
+    background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-bottom: 1px solid var(--border-light);
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 3rem;
+    padding: 0 2rem;
     z-index: 110;
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -410,21 +411,26 @@
 
   .brand-text {
     font-family: 'Times New Roman', serif;
-    font-size: 1.6rem; font-weight: 700; letter-spacing: -0.05em;
-    color: var(--text-main); margin-left: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--primary);
+    margin-left: 0.5rem;
   }
-  
-  .divider { 
-    margin: 0 0.5rem; 
-    color: var(--border-medium); 
-    font-size: 1.25rem; font-weight: 300; 
+
+  .divider {
+    margin: 0 0.5rem;
+    color: var(--border-light);
+    font-size: 1.2rem;
+    font-weight: 300;
   }
 
   .header-title {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 600;
-    color: var(--text-main);
-    margin: 0; padding: 0;
+    color: var(--text-secondary);
+    margin: 0;
+    padding: 0;
   }
 
   .header-actions {
@@ -439,30 +445,30 @@
     justify-content: center;
     width: 36px;
     height: 36px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: transparent;
-    color: var(--text-muted);
+    color: var(--text-secondary);
     border: 1px solid transparent;
     transition: all var(--transition-fast);
     cursor: pointer;
   }
-  
+
   .icon-btn:hover {
-    background: var(--bg-alt);
-    color: var(--text-secondary);
+    background: var(--primary-50);
+    color: var(--primary);
   }
 
   .collapse-toggle svg {
     transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
+
   .collapse-toggle.is-collapsed svg {
     transform: scaleX(-1);
   }
 
   .panel-toggle.active {
-    background: var(--bg-alt);
-    color: var(--text-main);
+    background: var(--primary-50);
+    color: var(--primary);
   }
 
   .notifications { position: relative; }
@@ -475,7 +481,7 @@
     height: 20px;
     padding: 0 0.4rem;
     border-radius: 99px;
-    background: var(--accent);
+    background: var(--primary);
     color: white;
     font-size: 0.65rem;
     font-weight: 700;
@@ -483,6 +489,7 @@
     align-items: center;
     justify-content: center;
     font-family: var(--font-ui);
+    box-shadow: 0 1px 3px rgba(79, 124, 219, 0.3);
   }
 
   .notification-panel {
@@ -493,50 +500,55 @@
     max-height: 480px;
     background: var(--bg-main);
     border: 1px solid var(--border-light);
-    border-radius: 10px;
+    border-radius: var(--radius);
     box-shadow: var(--shadow-lg);
-    padding: 0.75rem;
+    padding: 0;
     z-index: 200;
     animation: slideIn 0.25s ease-out;
+    overflow: hidden;
   }
 
   .notification-head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.75rem;
-    margin-bottom: 0.5rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0;
+    background: var(--primary-50);
     border-bottom: 1px solid var(--border-light);
     font-family: var(--font-ui);
     font-size: 0.95rem;
     font-weight: 600;
-    color: var(--text-main);
+    color: var(--primary-dark);
   }
 
   .notification-count {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 400;
+    margin-left: 0.5rem;
   }
 
   .notification-empty {
     color: var(--text-muted);
     font-size: 0.9rem;
-    padding: 2rem 1rem;
+    padding: 2.5rem 1.25rem;
     text-align: center;
     font-family: var(--font-ui);
+    line-height: 1.5;
   }
 
   .notification-scroll {
     max-height: 380px;
     overflow-y: auto;
+    padding: 0.5rem;
   }
 
   .notification-item {
     width: 100%;
     text-align: left;
     padding: 0.75rem;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: transparent;
     border: 1px solid transparent;
     margin-bottom: 0.25rem;
@@ -546,7 +558,7 @@
   }
 
   .notification-item:hover {
-    background: var(--bg-alt);
+    background: var(--primary-50);
     border-color: var(--border-light);
   }
 
@@ -575,9 +587,17 @@
     margin-bottom: 0.5rem;
     font-size: 0.65rem;
     font-weight: 700;
-    color: var(--text-muted);
+    color: var(--primary);
     text-transform: uppercase;
     letter-spacing: 0.08em;
+  }
+
+  .notification-chip.system {
+    color: var(--warning);
+  }
+
+  .notification-chip.message {
+    color: var(--primary);
   }
 
   .notification-time {
@@ -591,19 +611,20 @@
     height: 22px;
     padding: 0 0.4rem;
     border-radius: 99px;
-    background: var(--accent);
+    background: var(--primary);
     color: white;
     font-size: 0.75rem;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-shadow: 0 1px 3px rgba(79, 124, 219, 0.3);
   }
 
   .notification-section-title {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.1em;
     color: var(--text-muted);
     margin: 0.75rem 0.5rem 0.5rem;
     font-family: var(--font-ui);
@@ -616,8 +637,8 @@
     display: flex;
     align-items: center;
     gap: 0.6rem;
-    padding: 0.4rem 0.6rem 0.4rem 0.4rem;
-    border-radius: 24px;
+    padding: 0.35rem 0.6rem 0.35rem 0.35rem;
+    border-radius: 99px;
     background: transparent;
     color: var(--text-main);
     border: 1px solid var(--border-light);
@@ -627,16 +648,16 @@
 
   .user-btn:hover,
   .user-btn.active {
-    background: var(--bg-alt);
-    border-color: var(--border-medium);
+    background: var(--primary-50);
+    border-color: var(--primary-light);
   }
 
   .avatar {
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: var(--bg-alt);
-    color: var(--accent);
+    background: var(--primary-50);
+    color: var(--primary);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -644,15 +665,16 @@
     font-weight: 600;
     font-family: var(--font-ui);
     overflow: hidden;
-    border: 1px solid var(--border-light);
+    border: 2px solid var(--bg-main);
+    box-shadow: 0 0 0 1px var(--border-light);
     flex-shrink: 0;
   }
 
   .avatar img { width: 100%; height: 100%; object-fit: cover; }
 
   .dropdown-avatar {
-    width: 40px;
-    height: 40px;
+    width: 42px;
+    height: 42px;
     font-size: 1rem;
   }
 
@@ -670,7 +692,7 @@
   }
 
   .user-role {
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     color: var(--text-muted);
     font-weight: 400;
   }
@@ -681,7 +703,7 @@
     right: 0;
     margin-top: 0.75rem;
     background: var(--bg-main);
-    border-radius: 10px;
+    border-radius: var(--radius);
     border: 1px solid var(--border-light);
     box-shadow: var(--shadow-lg);
     min-width: 240px;
@@ -695,10 +717,10 @@
     display: flex;
     align-items: center;
     gap: 0.75rem;
-    padding: 0.75rem;
+    padding: 0.85rem;
     margin-bottom: 0.5rem;
-    border-radius: 8px;
-    background: var(--bg-alt);
+    border-radius: var(--radius-sm);
+    background: var(--primary-50);
   }
 
   .dropdown-profile strong {
@@ -727,7 +749,7 @@
     gap: 0.75rem;
     width: 100%;
     padding: 0.65rem 0.75rem;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     font-size: 0.9rem;
     color: var(--text-main);
     background: transparent;
@@ -736,13 +758,13 @@
     transition: all var(--transition-fast);
   }
 
-  .dropdown-item:hover { 
-    background: var(--bg-alt);
-    color: var(--accent);
+  .dropdown-item:hover {
+    background: var(--primary-50);
+    color: var(--primary);
   }
 
   .dropdown-item svg {
-    opacity: 0.7;
+    opacity: 0.6;
     transition: opacity var(--transition-fast);
   }
 

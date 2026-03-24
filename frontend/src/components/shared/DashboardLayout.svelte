@@ -27,8 +27,9 @@
   .main {
     margin-left: var(--sidebar-width);
     margin-top: var(--header-height);
-    padding: 4rem 5rem;
+    padding: 2.5rem 3rem;
     min-height: calc(100vh - var(--header-height));
+    background: var(--bg-alt);
     position: relative;
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     animation: slideIn 0.4s ease-out;
@@ -36,25 +37,25 @@
 
   .content-shell {
     display: grid;
-    gap: 3.5rem;
-    max-width: 1200px;
+    gap: 2rem;
+    max-width: 1280px;
     width: 100%;
     margin: 0 auto;
   }
 
-  @media (max-width: 1200px) {
+  @media (max-width: 1280px) {
     .main {
-      padding: 2rem 2.5rem;
+      padding: 2rem 2rem;
     }
   }
 
   @media (max-width: 900px) {
     .main {
-      padding: 1.5rem;
+      padding: 1.25rem;
     }
 
     .content-shell {
-      gap: 1.5rem;
+      gap: 1.25rem;
     }
   }
 

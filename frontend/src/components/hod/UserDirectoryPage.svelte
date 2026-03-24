@@ -310,8 +310,8 @@
     gap: 1.5rem;
     padding: 2rem;
     background:
-      radial-gradient(circle at top right, rgba(59, 130, 246, 0.16), transparent 28%),
-      linear-gradient(135deg, #ffffff, #f6f9ff);
+      radial-gradient(circle at top right, rgba(79, 124, 219, 0.12), transparent 28%),
+      linear-gradient(135deg, var(--bg-main), var(--primary-50));
   }
 
   .eyebrow {
@@ -320,18 +320,18 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--primary);
   }
 
   h2 {
     margin-bottom: 0.5rem;
     font-size: 1.8rem;
-    color: var(--gray-900);
+    color: var(--text-main);
   }
 
   .hero-copy {
     max-width: 44rem;
-    color: var(--gray-600);
+    color: var(--text-secondary);
   }
 
   .hero-meta {
@@ -347,7 +347,7 @@
   }
 
   .hero-label {
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-size: 0.875rem;
   }
 
@@ -375,7 +375,7 @@
   th, td {
     padding: 0.95rem 0.8rem;
     text-align: left;
-    border-bottom: 1px solid var(--gray-200);
+    border-bottom: 1px solid var(--border-light);
     vertical-align: middle;
   }
 
@@ -383,7 +383,8 @@
     font-size: 0.76rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: var(--gray-500);
+    color: var(--text-muted);
+    background: var(--bg-secondary);
   }
 
   .person-cell {
@@ -416,12 +417,12 @@
   }
 
   .muted {
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-size: 0.82rem;
   }
 
   .empty-state {
-    color: var(--gray-500);
+    color: var(--text-muted);
     padding: 1rem 0;
   }
 
@@ -432,8 +433,8 @@
   }
 
   .alert-error {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--danger-light);
+    color: var(--danger);
   }
 
   .btn-sm {
@@ -451,6 +452,7 @@
   .profile-modal {
     max-width: 760px;
     width: min(760px, 92vw);
+    border-radius: var(--radius-lg);
   }
 
   .modal-header {
@@ -462,12 +464,12 @@
   }
 
   h3, h4 {
-    color: var(--gray-900);
+    color: var(--text-main);
   }
 
   .close-btn {
     background: transparent;
-    color: var(--gray-500);
+    color: var(--text-muted);
     font-size: 1rem;
   }
 
@@ -482,8 +484,8 @@
     display: inline-flex;
     padding: 0.2rem 0.55rem;
     border-radius: 9999px;
-    background: var(--gray-100);
-    color: var(--gray-700);
+    background: var(--primary-50);
+    color: var(--primary-dark);
     font-size: 0.75rem;
     font-weight: 600;
     margin: 0.3rem 0;
@@ -497,9 +499,9 @@
 
   .detail-item {
     padding: 1rem;
-    border: 1px solid var(--gray-200);
+    border: 1px solid var(--border-light);
     border-radius: var(--radius);
-    background: var(--gray-50);
+    background: var(--bg-alt);
   }
 
   .detail-label {
@@ -509,11 +511,11 @@
     font-weight: 700;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: var(--gray-500);
+    color: var(--text-muted);
   }
 
   .detail-value {
-    color: var(--gray-900);
+    color: var(--text-main);
     font-weight: 500;
   }
 

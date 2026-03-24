@@ -82,17 +82,17 @@
   .confirm-icon {
     width: 48px;
     height: 48px;
-    border-radius: 12px;
+    border-radius: var(--radius);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(37, 99, 235, 0.08);
-    color: var(--accent);
+    background: var(--primary-50);
+    color: var(--primary);
     transition: all var(--transition-smooth);
   }
 
   .confirm-icon.danger {
-    background: rgba(239, 68, 68, 0.08);
+    background: var(--danger-light);
     color: var(--danger);
   }
 

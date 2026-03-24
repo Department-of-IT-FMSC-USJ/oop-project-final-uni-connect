@@ -14,4 +14,7 @@ public interface MentoringSessionRepository extends JpaRepository<MentoringSessi
     List<MentoringSession> findByMentorIdOrderBySessionDateDescSessionTimeDesc(Integer mentorId);
 
     boolean existsByMentorIdAndSessionDateAndSessionTime(Integer mentorId, LocalDate sessionDate, LocalTime sessionTime);
+
+    List<MentoringSession> findByMentorIdAndSessionDateBetweenOrderBySessionDateDescSessionTimeDesc(
+            Integer mentorId, LocalDate startDate, LocalDate endDate);
 }
