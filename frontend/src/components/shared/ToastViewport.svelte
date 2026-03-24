@@ -8,6 +8,13 @@
     error: 'Error'
   };
 
+  const variantIcons = {
+    info: 'i',
+    success: '✓',
+    warning: '!',
+    error: '×'
+  };
+
   function getTitle(item) {
     return item.title || variantLabels[item.variant] || 'Notice';
   }
@@ -15,8 +22,8 @@
 
 <div class="toast-viewport" aria-live="polite" aria-atomic="true">
   {#each $toasts as item (item.id)}
-    <article class="toast" class:success={item.variant === 'success'} class:warning={item.variant === 'warning'} class:error={item.variant === 'error'}>
-      <div class="toast-accent"></div>
+    <article class="toast" class:success={item.variant === 'success'} class:warning={item.variant === 'warning'} class:error={item.variant === 'error'} class:info={item.variant === 'info'}>
+      <div class="toast-icon">{variantIcons[item.variant] || 'i'}</div>
       <div class="toast-body">
         <div class="toast-head">
           <strong>{getTitle(item)}</strong>
@@ -33,44 +40,71 @@
     position: fixed;
     top: calc(var(--header-height) + 1rem);
     right: 1.5rem;
-    width: min(360px, calc(100vw - 2rem));
+    width: min(380px, calc(100vw - 2rem));
     display: grid;
-    gap: 0.85rem;
+    gap: 0.75rem;
     z-index: 1300;
     pointer-events: none;
   }
 
   .toast {
-    position: relative;
     display: grid;
-    grid-template-columns: 4px 1fr;
-    border-radius: 20px;
-    overflow: hidden;
-    border: 1px solid rgba(148, 163, 184, 0.22);
-    background: rgba(255, 255, 255, 0.95);
-    box-shadow: 0 24px 48px rgba(15, 23, 42, 0.14);
-    backdrop-filter: blur(18px);
+    grid-template-columns: 32px 1fr;
+    align-items: start;
+    gap: 0.75rem;
+    border-radius: 10px;
+    padding: 1rem;
+    border: 1px solid var(--border-light);
+    background: var(--bg-main);
+    box-shadow: var(--shadow-lg);
     pointer-events: auto;
+    animation: slideIn 0.3s ease-out;
+    transition: all var(--transition-smooth);
   }
 
-  .toast-accent {
-    background: linear-gradient(180deg, #2563eb, #38bdf8);
+  .toast:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-medium);
   }
 
-  .toast.success .toast-accent {
-    background: linear-gradient(180deg, #10b981, #34d399);
+  .toast-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    background: #f0f4f8;
+    color: var(--accent);
+    border: 1px solid var(--border-light);
+    flex-shrink: 0;
   }
 
-  .toast.warning .toast-accent {
-    background: linear-gradient(180deg, #f59e0b, #fbbf24);
+  .toast.success .toast-icon {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--success);
   }
 
-  .toast.error .toast-accent {
-    background: linear-gradient(180deg, #ef4444, #f97316);
+  .toast.warning .toast-icon {
+    background: rgba(245, 158, 11, 0.1);
+    color: var(--warning);
+  }
+
+  .toast.error .toast-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+
+  .toast.info .toast-icon {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--accent);
   }
 
   .toast-body {
-    padding: 0.95rem 1rem 1rem;
+    padding: 0;
   }
 
   .toast-head {
@@ -78,34 +112,58 @@
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.4rem;
   }
 
   .toast-head strong {
-    font-size: 0.84rem;
-    color: var(--gray-900);
-    letter-spacing: 0.01em;
+    font-size: 0.9rem;
+    color: var(--text-main);
+    font-weight: 600;
+    letter-spacing: 0;
   }
 
   .toast p {
-    color: var(--gray-600);
-    font-size: 0.84rem;
-    line-height: 1.55;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin: 0;
   }
 
   .toast-close {
     width: 28px;
     height: 28px;
-    border-radius: 999px;
-    background: rgba(241, 245, 249, 0.9);
-    color: var(--gray-500);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-muted);
     font-size: 0.8rem;
-    transition: background 0.18s ease, color 0.18s ease;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .toast-close:hover {
-    background: rgba(226, 232, 240, 0.95);
-    color: var(--gray-800);
+    background: var(--bg-alt);
+    color: var(--text-main);
+  }
+
+  .toast.error .toast-close:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger);
+  }
+
+  @keyframes toast-enter {
+    from {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
   }
 
   @media (max-width: 720px) {

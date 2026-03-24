@@ -61,6 +61,7 @@
 
     await loadProfileSummary();
     await loadMentors();
+    await loadUpcomingEvents();
     await loadNotePoolSummary();
     await loadProofs();
   }
@@ -126,8 +127,50 @@
     }
   }
 
+  async function loadUpcomingEvents() {
+    events = [];
+    const studentId = user?.userId || user?.id;
+    if (!studentId) return;
+
+    try {
+      const sessionsRes = await api.get(`/student-sessions/${studentId}`, { cache: false });
+      const allSessions = Array.isArray(sessionsRes) ? sessionsRes : (sessionsRes?.data || []);
+      const now = new Date();
+
+      events = allSessions
+        .map((session) => {
+          const startsAt = toSessionDateTime(session?.sessionDate, session?.sessionTime);
+          if (!startsAt) return null;
+          return {
+            name: session?.sessionTitle || session?.sessionTopic || 'Mentor Session',
+            date: `${session?.sessionDate || '-'} ${session?.sessionTime || ''}`.trim(),
+            mentorName: session?.mentorName || '',
+            startsAt
+          };
+        })
+        .filter(Boolean)
+        .filter((entry) => entry.startsAt >= now)
+        .sort((left, right) => left.startsAt - right.startsAt)
+        .slice(0, 5)
+        .map((entry) => ({
+          name: entry.name,
+          date: `${entry.date}${entry.mentorName ? ` • ${entry.mentorName}` : ''}`
+        }));
+    } catch (e) {
+      console.error('Failed to load upcoming events', e);
+      events = [];
+    }
+  }
+
   async function refreshLiveData() {
-    await Promise.all([loadProfileSummary(), loadMentors(), loadProofs()]);
+    await Promise.all([loadProfileSummary(), loadMentors(), loadProofs(), loadUpcomingEvents()]);
+  }
+
+  function toSessionDateTime(sessionDate, sessionTime) {
+    if (!sessionDate || !sessionTime) return null;
+    const parsed = new Date(`${sessionDate}T${sessionTime}`);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
   }
 
   async function submitProof() {
@@ -285,7 +328,7 @@
       {:else}
         {#each events as event}
           <div class="event-item">
-            <strong>{event.name}</strong>
+            <a href="/undergraduate/mentors" class="link-btn"><strong>{event.name}</strong></a>
             <span>{event.date}</span>
           </div>
         {/each}
@@ -346,7 +389,13 @@
             <tbody>
               {#each myProofs.slice(0, 5) as proof}
                 <tr>
-                  <td>{proof.title}</td>
+                  <td>
+                    {#if proof.proofData}
+                      <a href={proof.proofData} target="_blank" rel="noreferrer" class="link-btn">{proof.title}</a>
+                    {:else}
+                      {proof.title}
+                    {/if}
+                  </td>
                   <td>{proof.pointCategory || '-'}</td>
                   <td>{proof.pointStatus || 'PENDING'}</td>
                   <td>{proof.eventDate || '-'}</td>
@@ -434,7 +483,6 @@
             <select id="proof-category" class="input" bind:value={proofForm.category}>
               <option value="ACTIVITY">Activity</option>
               <option value="AWARD">Award</option>
-              <option value="DIRECT">Direct</option>
             </select>
           </div>
           <div class="form-group">
@@ -501,6 +549,8 @@
 </DashboardLayout>
 
 <style>
+  .link-btn { background:none; border:none; padding:0; color:var(--primary,#111); font-weight:500; cursor:pointer; text-decoration:none; }
+  .link-btn:hover { text-decoration:underline; color:var(--accent,#555); }
   .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; margin-bottom:2rem; }
   .dashboard-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:1.5rem; }
   .section-title { font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--gray-800); }

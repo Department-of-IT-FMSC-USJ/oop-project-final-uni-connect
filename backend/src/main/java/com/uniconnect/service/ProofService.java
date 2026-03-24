@@ -7,6 +7,7 @@ import com.uniconnect.dto.PointRecordResponse;
 import com.uniconnect.dto.ReviewPointsRequest;
 import com.uniconnect.dto.AllocatePointsRequest;
 import com.uniconnect.model.PointRecord;
+import com.uniconnect.model.PointCategory;
 import com.uniconnect.model.PointStatus;
 import com.uniconnect.model.ProofSubmission;
 import com.uniconnect.model.Role;
@@ -25,8 +26,10 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class ProofService {
     private static final String GOOGLE_DRIVE_LINK_REGEX =
             "^(https://)?drive\\.google\\.com/.+$";
@@ -165,7 +168,7 @@ public class ProofService {
                 request.setCategory(proof.getLatestCategory());
             }
             if (request.getCategory() == null) {
-                throw new IllegalArgumentException("This submission does not have a category. Ask the student to resubmit it.");
+                request.setCategory(PointCategory.ACTIVITY);
             }
 
             approveProofWithPoints(reviewer, proof, existingRecord, request);
@@ -180,6 +183,9 @@ public class ProofService {
         } else {
             proof.setLatestStatus(PointStatus.REJECTED);
             proof.setLatestPoints(0);
+            if (proof.getLatestCategory() == null) {
+                proof.setLatestCategory(PointCategory.ACTIVITY);
+            }
             proofRepository.save(proof);
             systemNotificationService.createNotification(
                     proof.getStudent().getId(),

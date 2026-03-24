@@ -3,6 +3,7 @@ package com.uniconnect.student.modules.recommendation.serviceImpl;
 import com.uniconnect.model.User;
 import com.uniconnect.repository.UserRepository;
 import com.uniconnect.student.modules.recommendation.dto.MentorProfileRequestDTO;
+import com.uniconnect.student.modules.recommendation.dto.MentorProfileResponseDTO;
 import com.uniconnect.student.modules.recommendation.dto.RecommendationResponseDTO;
 import com.uniconnect.student.modules.recommendation.dto.StudentProfileRequestDTO;
 import com.uniconnect.student.modules.recommendation.entity.MentorProfile;
@@ -83,6 +84,7 @@ public class MentorRecommendationServiceImpl implements MentorRecommendationServ
             profile.setMentorCategory(category);
             profile.setExpertiseTags(requestDTO.getExpertiseTags());
             profile.setDepartment(requestDTO.getDepartment());
+            profile.setCompany(requestDTO.getCompany());
         } else {
             profile = new MentorProfile();
             profile.setMentorId(requestDTO.getMentorId());
@@ -90,11 +92,35 @@ public class MentorRecommendationServiceImpl implements MentorRecommendationServ
             profile.setMentorCategory(category);
             profile.setExpertiseTags(requestDTO.getExpertiseTags());
             profile.setDepartment(requestDTO.getDepartment());
+            profile.setCompany(requestDTO.getCompany());
             profile.setIsAvailable(true);
         }
 
         mentorProfileRepository.save(profile);
         return "Mentor profile saved successfully";
+    }
+
+    /**
+     * Get a mentor's profile by mentor ID.
+     */
+    @Override
+    public MentorProfileResponseDTO getMentorProfile(Integer mentorId) {
+        Optional<MentorProfile> profile = mentorProfileRepository.findByMentorId(mentorId);
+        
+        if (profile.isEmpty()) {
+            return null;
+        }
+
+        MentorProfile mentorProfile = profile.get();
+        return new MentorProfileResponseDTO(
+                mentorProfile.getMentorId(),
+                mentorProfile.getMentorName(),
+                mentorProfile.getMentorCategory().getDisplayName(),
+                mentorProfile.getExpertiseTags(),
+                mentorProfile.getDepartment(),
+                mentorProfile.getCompany(),
+                mentorProfile.getIsAvailable()
+        );
     }
 
     /**

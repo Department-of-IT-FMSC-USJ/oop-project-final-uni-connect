@@ -139,13 +139,11 @@
         </div>
         <div class="hero-image">
           <div class="hero-illustration">
-            <svg viewBox="0 0 400 300" fill="none">
-              <rect x="50" y="40" width="300" height="200" rx="12" fill="#e0e7ff" opacity="0.5"/>
-              <rect x="80" y="70" width="120" height="80" rx="8" fill="#3b82f6" opacity="0.3"/>
-              <rect x="220" y="70" width="100" height="80" rx="8" fill="#10b981" opacity="0.3"/>
-              <circle cx="140" cy="200" r="30" fill="#1e3a5f" opacity="0.2"/>
-              <circle cx="260" cy="200" r="25" fill="#f59e0b" opacity="0.3"/>
-              <path d="M100 180 L200 130 L300 170" stroke="#3b82f6" stroke-width="3" fill="none"/>
+            <svg viewBox="0 0 400 300" fill="none" stroke="var(--border-medium)" stroke-width="1.5">
+              <circle cx="200" cy="150" r="100" />
+              <circle cx="200" cy="150" r="140" stroke-dasharray="4 8" opacity="0.6"/>
+              <line x1="200" y1="10" x2="200" y2="290" opacity="0.3"/>
+              <line x1="60" y1="150" x2="340" y2="150" opacity="0.3"/>
             </svg>
           </div>
         </div>
@@ -338,7 +336,7 @@
 <style>
   .landing {
     min-height: 100vh;
-    background: var(--gray-50);
+    background: var(--bg-main);
   }
 
   /* Top Navigation */
@@ -347,67 +345,84 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem 2rem;
-    background: white;
-    border-bottom: 1px solid var(--gray-200);
+    background: var(--bg-main);
+    border-bottom: 1px solid var(--border-light);
     position: sticky;
     top: 0;
     z-index: 50;
+    transition: all var(--transition-fast);
   }
 
   .nav-brand {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    font-size: 1.25rem;
+    gap: 0.6rem;
+    font-size: 1.2rem;
     font-weight: 700;
-    color: var(--primary);
+    color: var(--text-main);
+    font-family: var(--font-heading);
   }
 
   .nav-icon {
     width: 28px;
     height: 28px;
-    color: var(--primary);
+    color: var(--accent);
   }
 
   .nav-links {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.5rem;
   }
 
   .nav-link {
     background: none;
-    color: var(--gray-600);
+    color: var(--text-muted);
     font-size: 0.9rem;
     font-weight: 500;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius);
-    transition: all 0.15s;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    transition: all var(--transition-fast);
+    cursor: pointer;
   }
-  .nav-link:hover { color: var(--primary); }
-  .nav-link.active { color: var(--primary); }
+
+  .nav-link:hover { 
+    color: var(--text-main);
+    background: var(--bg-alt);
+  }
+
+  .nav-link.active { 
+    color: var(--accent);
+    font-weight: 600;
+  }
 
   .btn-login {
-    background: var(--primary);
+    background: var(--accent);
     color: white !important;
+    border: 1px solid var(--accent);
   }
-  .btn-login:hover { background: var(--primary-light); }
+
+  .btn-login:hover { 
+    background: var(--accent-light);
+    border-color: var(--accent-light);
+  }
 
   /* Hero */
   .hero {
     max-width: 1200px;
     margin: 0 auto;
     padding: 4rem 2rem;
+    animation: slideIn 0.6s ease-out;
   }
 
   .hero-content {
     display: flex;
     align-items: center;
-    gap: 4rem;
-    background: white;
-    border-radius: 16px;
-    padding: 3rem;
-    box-shadow: var(--shadow);
+    gap: 6rem;
+    padding: 6rem 2rem;
+    max-width: 1000px;
+    margin: 0 auto;
   }
 
   .hero-text {
@@ -415,29 +430,32 @@
   }
 
   .hero-text h1 {
-    font-size: 2.5rem;
-    font-weight: 700;
-    color: var(--gray-900);
-    line-height: 1.2;
-    margin-bottom: 1rem;
+    font-size: 3.5rem;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    color: var(--text-main);
+    line-height: 1.1;
+    margin-bottom: 1.5rem;
+    font-family: var(--font-heading);
   }
 
   .hero-text p {
-    font-size: 1.1rem;
-    color: var(--gray-500);
+    font-size: 1.05rem;
+    color: var(--text-secondary);
     margin-bottom: 2rem;
     line-height: 1.6;
   }
 
   .hero-btn {
     padding: 0.75rem 2rem;
-    font-size: 1rem;
+    font-size: 0.95rem;
   }
 
   .hero-image {
     flex: 1;
     display: flex;
     justify-content: center;
+    animation: slideInRight 0.6s ease-out;
   }
 
   .hero-illustration svg {
@@ -449,48 +467,51 @@
   .features {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 1.5rem;
+    gap: 2rem;
     max-width: 1200px;
     margin: 0 auto;
     padding: 0 2rem 4rem;
   }
 
   .feature-card {
-    background: white;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: var(--shadow);
-    transition: transform 0.2s, box-shadow 0.2s;
+    background: var(--bg-alt);
+    border-radius: var(--radius);
+    padding: 3rem 2rem;
+    border: 1px solid var(--border-light);
+    box-shadow: none;
+    transition: all var(--transition-smooth);
+    animation: slideIn 0.5s ease-out;
   }
+
   .feature-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow);
   }
 
   .feature-icon {
     width: 56px;
     height: 56px;
-    border-radius: 12px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     margin-bottom: 1rem;
   }
 
-  .student-icon { background: #dbeafe; color: #2563eb; }
-  .dept-icon { background: #d1fae5; color: #059669; }
-  .curric-icon { background: #fef3c7; color: #d97706; }
+  .student-icon { background: var(--bg-main); color: var(--primary); border: 1px solid var(--border-light); }
+  .dept-icon { background: var(--bg-main); color: var(--primary); border: 1px solid var(--border-light); }
+  .curric-icon { background: var(--bg-main); color: var(--primary); border: 1px solid var(--border-light); }
 
   .feature-card h3 {
-    font-size: 1.125rem;
+    font-size: 1.1rem;
     font-weight: 600;
     margin-bottom: 0.5rem;
-    color: var(--gray-900);
+    color: var(--text-main);
   }
 
   .feature-card p {
-    font-size: 0.875rem;
-    color: var(--gray-500);
+    font-size: 0.9rem;
+    color: var(--text-muted);
     line-height: 1.6;
   }
 
@@ -501,15 +522,18 @@
     padding: 3rem 2rem;
     min-height: calc(100vh - 72px);
     align-items: flex-start;
+    animation: fadeIn 0.4s ease-out;
   }
 
   .auth-card {
-    background: white;
-    border-radius: 12px;
-    padding: 2.5rem;
-    box-shadow: var(--shadow-md);
+    background: var(--bg-main);
+    border-radius: 8px;
+    padding: 3.5rem;
+    box-shadow: none;
+    border: 1px solid var(--border-light);
     width: 100%;
     max-width: 420px;
+    animation: slideIn 0.5s ease-out;
   }
 
   .register-card {
@@ -519,13 +543,14 @@
   .auth-card h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: var(--gray-900);
+    color: var(--text-main);
     margin-bottom: 0.25rem;
+    font-family: var(--font-heading);
   }
 
   .auth-subtitle {
-    color: var(--gray-500);
-    font-size: 0.875rem;
+    color: var(--text-muted);
+    font-size: 0.9rem;
     margin-bottom: 1.5rem;
   }
 
@@ -535,10 +560,10 @@
 
   .form-group label {
     display: block;
-    font-size: 0.8125rem;
-    font-weight: 500;
-    color: var(--gray-700);
-    margin-bottom: 0.375rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
   }
 
   .form-row {
@@ -549,8 +574,8 @@
 
   .hint {
     font-size: 0.75rem;
-    color: var(--gray-400);
-    margin-top: 0.25rem;
+    color: var(--text-muted);
+    margin-top: 0.3rem;
     display: block;
   }
 
@@ -558,40 +583,52 @@
     width: 100%;
     padding: 0.75rem;
     margin-top: 0.5rem;
-    font-size: 0.9375rem;
+    font-size: 0.95rem;
   }
 
   .alert {
     padding: 0.75rem 1rem;
-    border-radius: var(--radius);
-    font-size: 0.8125rem;
+    border-radius: 10px;
+    font-size: 0.85rem;
     margin-bottom: 1rem;
+    animation: slideIn 0.3s ease-out;
   }
 
   .alert-error {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #fecaca;
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--danger);
+    border: 1px solid rgba(239, 68, 68, 0.2);
   }
 
   .auth-switch {
     text-align: center;
     margin-top: 1.5rem;
-    font-size: 0.875rem;
-    color: var(--gray-500);
+    font-size: 0.9rem;
+    color: var(--text-muted);
   }
 
   .link-btn {
     background: none;
     color: var(--accent);
-    font-weight: 500;
-    font-size: 0.875rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border: none;
+    cursor: pointer;
+    transition: color var(--transition-fast);
   }
-  .link-btn:hover { text-decoration: underline; }
+
+  .link-btn:hover { 
+    color: var(--accent-light);
+    text-decoration: underline;
+  }
 
   @media (max-width: 768px) {
-    .hero-content { flex-direction: column; gap: 2rem; }
+    .hero-content { flex-direction: column; gap: 2rem; padding: 2rem; }
+    .hero-text h1 { font-size: 2rem; }
     .features { grid-template-columns: 1fr; }
     .form-row { grid-template-columns: 1fr; }
+    .top-nav { padding: 1rem; }
+    .nav-brand { font-size: 1rem; }
+    .nav-icon { width: 24px; height: 24px; }
   }
 </style>

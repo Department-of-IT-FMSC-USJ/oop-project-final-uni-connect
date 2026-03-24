@@ -2,6 +2,7 @@ package com.uniconnect.student.modules.recommendation.controller;
 
 import com.uniconnect.student.common.dto.ApiResponseDTO;
 import com.uniconnect.student.modules.recommendation.dto.MentorProfileRequestDTO;
+import com.uniconnect.student.modules.recommendation.dto.MentorProfileResponseDTO;
 import com.uniconnect.student.modules.recommendation.dto.RecommendationResponseDTO;
 import com.uniconnect.student.modules.recommendation.dto.StudentProfileRequestDTO;
 import com.uniconnect.student.modules.recommendation.service.MentorRecommendationService;
@@ -60,6 +61,26 @@ public class MentorRecommendationController {
         String message = recommendationService.saveMentorProfile(requestDTO);
 
         ApiResponseDTO<String> response = ApiResponseDTO.success(message, null);
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    /**
+     * Get a mentor's profile by mentor ID.
+     *
+     * GET /api/recommendations/mentor-profile/{mentorId}
+     *
+     * @param mentorId the mentor ID
+     * @return mentor profile data
+     */
+    @GetMapping("/mentor-profile/{mentorId}")
+    public ResponseEntity<ApiResponseDTO<MentorProfileResponseDTO>> getMentorProfile(
+            @PathVariable("mentorId") Integer mentorId) {
+
+        MentorProfileResponseDTO profile = recommendationService.getMentorProfile(mentorId);
+
+        ApiResponseDTO<MentorProfileResponseDTO> response = ApiResponseDTO.success(
+                "Mentor profile retrieved successfully", profile);
 
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

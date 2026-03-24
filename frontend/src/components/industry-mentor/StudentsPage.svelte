@@ -86,7 +86,7 @@
           <tbody>
             {#each filteredStudents() as student}
               <tr>
-                <td><strong>{student.fullName}</strong></td>
+                <td><button class="link-btn" on:click={() => selectedContact = student}><strong>{student.fullName}</strong></button></td>
                 <td>{student.registrationNumber || '-'}</td>
                 <td>{student.email || '-'}</td>
                 <td>{student.department || '-'}</td>
@@ -106,6 +106,8 @@
 </DashboardLayout>
 
 <style>
+  .link-btn { background:none; border:none; padding:0; color:var(--primary,#111); font-weight:600; cursor:pointer; text-decoration:none; text-align:left; }
+  .link-btn:hover { text-decoration:underline; color:var(--accent,#555); }
   .hero-card { display:flex; justify-content:space-between; gap:1rem; padding:2rem; margin-bottom:1.5rem; background:linear-gradient(135deg,#fff,#f9fbff); }
   .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--accent); margin-bottom:0.5rem; }
   .hero-copy { color:var(--gray-600); max-width:40rem; }

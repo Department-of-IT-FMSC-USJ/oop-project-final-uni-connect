@@ -35,6 +35,9 @@ public class MentorProfile {
     @Column(name = "is_available", nullable = false)
     private Boolean isAvailable;
 
+    @Column(name = "company", length = 150)
+    private String company;
+
     public MentorProfile() {
     }
 
@@ -115,6 +118,14 @@ public class MentorProfile {
         this.isAvailable = isAvailable;
     }
 
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
     @Override
     public String toString() {
         return "MentorProfile{" +
@@ -124,6 +135,7 @@ public class MentorProfile {
                 ", mentorCategory=" + mentorCategory +
                 ", expertiseTags='" + expertiseTags + '\'' +
                 ", department='" + department + '\'' +
+                ", company='" + company + '\'' +
                 ", isAvailable=" + isAvailable +
                 '}';
     }

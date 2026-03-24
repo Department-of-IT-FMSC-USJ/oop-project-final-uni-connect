@@ -3,7 +3,6 @@
   import { api, downloadWithAuth, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
   import { undergraduateNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
-  import ConfirmDialog from '../shared/ConfirmDialog.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -18,8 +17,6 @@
   let yearFilter = '';
   let typeFilter = '';
   let refreshTimer = null;
-  let pendingDeleteMaterial = null;
-  let deletingMaterial = false;
   let form = {
     title: '',
     description: '',
@@ -92,6 +89,23 @@
     uploadError = '';
     uploadSuccess = '';
 
+    const trimmedTitle = form.title.trim();
+    if (!trimmedTitle || trimmedTitle.length < 3) {
+      uploadError = 'Title must be at least 3 characters long.';
+      return;
+    }
+    if (!/[a-zA-Z]/.test(trimmedTitle)) {
+      uploadError = 'Title must contain at least one letter.';
+      return;
+    }
+    if (trimmedTitle.length > 100) {
+      uploadError = 'Title cannot exceed 100 characters.';
+      return;
+    }
+    if (form.description.trim().length > 500) {
+      uploadError = 'Description cannot exceed 500 characters.';
+      return;
+    }
     if (!form.file) {
       uploadError = 'Select a PDF file to upload.';
       return;
@@ -142,29 +156,33 @@
     }
   }
 
-  function requestDeleteMaterial(item) {
-    pendingDeleteMaterial = item;
-  }
-
-  async function deleteMaterial() {
-    if (!pendingDeleteMaterial) return;
-    deletingMaterial = true;
+  async function viewNote(materialId) {
     try {
-      await api.delete(`/materials/${pendingDeleteMaterial.materialId}`);
-      toast.success({ title: 'Note deleted', message: 'Your note was removed from the archive and note pool.' });
-      pendingDeleteMaterial = null;
-      await loadMaterials();
+      const blob = await downloadWithAuth(`/materials/download/${materialId}`);
+      const url = URL.createObjectURL(blob);
+      const popup = window.open(url, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      window.setTimeout(() => URL.revokeObjectURL(url), 60000);
     } catch (e) {
-      const message = e?.data?.message || 'Failed to delete note.';
-      toast.error({ title: 'Delete failed', message });
-    } finally {
-      deletingMaterial = false;
+      error = e?.data?.message || 'Failed to open note.';
+      toast.error({ title: 'Open failed', message: error });
     }
   }
 
-  function myUploads() {
-    const currentId = user?.userId || user?.id;
-    return materials.filter((item) => String(item.uploadedBy) === String(currentId));
+  function formatMaterialType(value) {
+    return (value || 'OTHER')
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
   }
 
   const yearOptions = ['1', '2', '3', '4'];
@@ -172,30 +190,34 @@
 
 <DashboardLayout navItems={undergraduateNavItems} activeItem="note-pool" pageTitle="Note Pool">
   <section class="card hero-card">
-    <div>
+    <div class="hero-content">
       <p class="eyebrow">Undergraduate</p>
       <h2>Note Pool</h2>
       <p class="hero-copy">Upload PDF notes for a specific year and browse the shared note pool across the department.</p>
     </div>
-    <button class="btn btn-primary" on:click={() => showUpload = true}>Upload Notes</button>
+    <button class="btn btn-primary hero-action" on:click={() => showUpload = true}>Upload Notes</button>
   </section>
 
   <section class="card">
     <div class="toolbar">
-      <input class="input search-input" bind:value={query} placeholder="Search by title, description, uploader, or type" />
-      <select class="input compact" bind:value={typeFilter}>
-        <option value="">All types</option>
-        <option value="NOTES">Notes</option>
-        <option value="PAST_PAPERS">Past Papers</option>
-        <option value="LECTURE_SLIDES">Lecture Slides</option>
-        <option value="OTHER">Other</option>
-      </select>
-      <select class="input compact" bind:value={yearFilter}>
-        <option value="">All years</option>
-        {#each yearOptions as year}
-          <option value={year}>Year {year}</option>
-        {/each}
-      </select>
+      <div class="toolbar-search">
+        <input class="input search-input" bind:value={query} placeholder="Search by title, description, uploader, or type" />
+      </div>
+      <div class="toolbar-filters">
+        <select class="input compact" bind:value={typeFilter}>
+          <option value="">All types</option>
+          <option value="NOTES">Notes</option>
+          <option value="PAST_PAPERS">Past Papers</option>
+          <option value="LECTURE_SLIDES">Lecture Slides</option>
+          <option value="OTHER">Other</option>
+        </select>
+        <select class="input compact" bind:value={yearFilter}>
+          <option value="">All years</option>
+          {#each yearOptions as year}
+            <option value={year}>Year {year}</option>
+          {/each}
+        </select>
+      </div>
     </div>
 
     {#if uploadSuccess}
@@ -226,56 +248,21 @@
             {#each visibleMaterials() as item}
               <tr>
                 <td>
-                  <strong>{item.title}</strong>
-                  <div class="muted">{item.description || 'No description provided.'}</div>
+                  <div class="material-title">
+                    <button class="note-link" type="button" on:click={() => viewNote(item.materialId)}>
+                      {item.title}
+                    </button>
+                    <div class="muted material-description">{item.description || 'No description provided.'}</div>
+                  </div>
                 </td>
-                <td>{item.materialType}</td>
-                <td>Year {item.targetYearOfStudy || '-'}</td>
+                <td><span class="table-chip">{formatMaterialType(item.materialType)}</span></td>
+                <td><span class="table-chip table-chip-muted">Year {item.targetYearOfStudy || '-'}</span></td>
                 <td>{uploaderName(item)}</td>
                 <td>{item.uploadDate ? new Date(item.uploadDate).toLocaleString() : '-'}</td>
-                <td><button class="btn btn-outline btn-sm" on:click={() => downloadNote(item.materialId, item.title)}>Download PDF</button></td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </section>
-
-  <section class="card">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">Archive</p>
-        <h3>Your Uploaded Notes</h3>
-      </div>
-      <span class="archive-count">{myUploads().length}</span>
-    </div>
-
-    {#if myUploads().length === 0}
-      <p class="empty-state">You have not uploaded notes yet.</p>
-    {:else}
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Type</th>
-              <th>Year</th>
-              <th>Uploaded At</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each myUploads() as item}
-              <tr>
-                <td><strong>{item.title}</strong></td>
-                <td>{item.materialType}</td>
-                <td>Year {item.targetYearOfStudy || '-'}</td>
-                <td>{item.uploadDate ? new Date(item.uploadDate).toLocaleString() : '-'}</td>
-                <td>
-                  <div class="action-row">
+                <td class="table-action">
+                  <div class="action-row table-action-row">
+                    <button class="btn btn-outline btn-sm" on:click={() => viewNote(item.materialId)}>View</button>
                     <button class="btn btn-outline btn-sm" on:click={() => downloadNote(item.materialId, item.title)}>Download</button>
-                    <button class="btn btn-danger btn-sm" on:click={() => requestDeleteMaterial(item)}>Delete</button>
                   </div>
                 </td>
               </tr>
@@ -334,29 +321,27 @@
     </div>
   {/if}
 
-  <ConfirmDialog
-    open={!!pendingDeleteMaterial}
-    title="Delete uploaded note?"
-    message={`Delete "${pendingDeleteMaterial?.title || 'this note'}" from your archive and the shared note pool?`}
-    confirmLabel="Delete note"
-    tone="danger"
-    busy={deletingMaterial}
-    on:cancel={() => pendingDeleteMaterial = null}
-    on:confirm={deleteMaterial}
-  />
 </DashboardLayout>
 
 <style>
-  .hero-card { display:flex; justify-content:space-between; gap:1rem; padding:2rem; margin-bottom:1.5rem; background:linear-gradient(135deg,#fff,#f6fbff); }
+  .hero-card { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:1.5rem; padding:2.25rem 2.5rem; margin-bottom:1.5rem; background:linear-gradient(135deg,#fff,#f7f8fa); }
+  .hero-content { display:grid; gap:0.45rem; max-width:44rem; }
+  .hero-action { min-width: 11.5rem; min-height: 3.25rem; }
   .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--accent); margin-bottom:0.5rem; }
   .hero-copy,.muted,.helper-text { color:var(--gray-600); }
-  .toolbar { display:flex; gap:0.75rem; flex-wrap:wrap; margin-bottom:1rem; }
-  .search-input { min-width:min(100%, 320px); }
-  .compact { width: 180px; }
+  .hero-copy { max-width: 40rem; line-height: 1.55; }
+  .toolbar { display:grid; gap:0.9rem; margin-bottom:1.25rem; }
+  .toolbar-search { width: 100%; }
+  .toolbar-filters { display:flex; gap:0.75rem; flex-wrap:wrap; }
+  .search-input { min-width:0; }
+  .compact { width: min(100%, 180px); }
   .table-wrapper { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; }
-  th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--gray-200); text-align:left; vertical-align:top; }
+  th, td { padding:1rem 0.75rem; border-bottom:1px solid var(--gray-200); text-align:left; vertical-align:top; }
   th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--gray-500); }
+  tbody tr { transition: background 0.18s ease; }
+  tbody tr:hover { background: rgba(244, 244, 245, 0.55); }
+  th:last-child, td:last-child { text-align:right; white-space:nowrap; }
   .empty-state { color:var(--gray-500); }
   .alert { padding:0.8rem 1rem; border-radius:var(--radius); margin-bottom:1rem; }
   .alert-error { background:#fee2e2; color:#991b1b; }
@@ -365,7 +350,27 @@
   .full-width { grid-column:1 / -1; }
   .form-group label { display:block; margin-bottom:0.35rem; font-size:0.82rem; color:var(--gray-600); }
   .modal-actions { display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem; }
-  .section-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; }
-  .archive-count { font-size:1.4rem; font-weight:700; color:var(--primary); }
   .action-row { display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap; }
+  .table-action-row { justify-content:flex-end; }
+  .material-title { display:grid; gap:0.3rem; max-width:20rem; }
+  .material-description { font-size:0.94rem; line-height:1.45; }
+  .note-link { padding:0; background:none; border:none; color:var(--gray-900); font-size:1rem; font-weight:700; text-align:left; transition: color 0.18s ease; }
+  .note-link:hover { color:var(--primary); text-decoration:underline; text-underline-offset:0.16rem; }
+  .table-chip { display:inline-flex; align-items:center; padding:0.34rem 0.68rem; border-radius:999px; border:1px solid rgba(24, 24, 27, 0.1); background:#fafafa; color:#27272a; font-size:0.78rem; font-weight:600; white-space:nowrap; }
+  .table-chip-muted { background:#ffffff; color:var(--gray-600); }
+  .table-action { width:1%; }
+
+  @media (max-width: 900px) {
+    .hero-card { grid-template-columns:1fr; padding:1.75rem; }
+    .hero-action { width:100%; }
+  }
+
+  @media (max-width: 640px) {
+    .toolbar-filters,
+    .form-grid { grid-template-columns:1fr; }
+    .toolbar-filters { display:grid; }
+    .compact { width:100%; }
+    th:last-child, td:last-child { text-align:left; }
+    .table-action-row { justify-content:flex-start; }
+  }
 </style>

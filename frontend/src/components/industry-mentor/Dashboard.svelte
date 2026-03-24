@@ -61,6 +61,15 @@
 
   async function createSession() {
     sessionError = '';
+    if (!sessionDate || !sessionTime) {
+      sessionError = 'Date and time are required.';
+      return;
+    }
+    const scheduled = new Date(`${sessionDate}T${sessionTime}`);
+    if (Number.isNaN(scheduled.getTime()) || scheduled <= new Date()) {
+      sessionError = 'Session date and time must be in the future.';
+      return;
+    }
     sessionLoading = true;
     try {
       await api.post('/industry/sessions', {
@@ -82,7 +91,7 @@
     try {
       await api.post('/suggestions', {
         mentorId: user.userId || user.id,
-        title: suggestionTitle,
+        suggestionTitle: suggestionTitle,
         category: suggestionCategory,
         description: suggestionDescription
       });
@@ -136,7 +145,7 @@
               <span class="session-month">{new Date(session.sessionDate || Date.now()).toLocaleString('default', { month: 'short' })}</span>
             </div>
             <div class="session-details">
-              <h3>{session.sessionTitle || 'Session'}</h3>
+              <h3><a href="/industry-mentor/sessions" class="link-btn">{session.sessionTitle || 'Session'}</a></h3>
               <p>📍 {session.sessionLocation || 'TBD'}</p>
               <p class="session-meta">{session.registeredCount || 0} students registered</p>
             </div>
@@ -178,7 +187,7 @@
     <div class="modal-overlay" on:click|self={() => showCreateSession = false}>
       <div class="modal-content">
         <h2>Create Session</h2>
-        {#if sessionError}<div class="alert-error">{sessionError}</div>{/if}
+        {#if sessionError}<div class="alert alert-error">{sessionError}</div>{/if}
         <form on:submit|preventDefault={createSession}>
           <div class="form-group">
             <label>Title</label>
@@ -228,7 +237,7 @@
       <div class="modal-content">
         <h2>Submit Curriculum Suggestion</h2>
         <p class="modal-desc">Share your industry insights to improve the curriculum.</p>
-        {#if suggestionError}<div class="alert-error">{suggestionError}</div>{/if}
+        {#if suggestionError}<div class="alert alert-error">{suggestionError}</div>{/if}
         <form on:submit|preventDefault={submitSuggestion}>
           <div class="form-group">
             <label>Title</label>
@@ -260,6 +269,8 @@
 </DashboardLayout>
 
 <style>
+  .link-btn { background: none; border: none; padding: 0; color: var(--primary, #111); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .link-btn:hover { text-decoration: underline; color: var(--accent, #555); }
   .actions-row {
     display: flex;
     gap: 1rem;

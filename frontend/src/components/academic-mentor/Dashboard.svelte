@@ -81,7 +81,9 @@
               {#each sessions as session}
                 <tr>
                   <td>
-                    <strong>{session.sessionTitle || session.sessionTopic || 'Session'}</strong>
+                    <a href="/academic-mentor/sessions" class="link-btn">
+                      <strong>{session.sessionTitle || session.sessionTopic || 'Session'}</strong>
+                    </a>
                     <div class="row-copy">{session.sessionDescription || 'No description provided.'}</div>
                   </td>
                   <td><span class="badge badge-info">{session.sessionType === 'ONE_TO_ONE' ? 'One to one' : 'Group'}</span></td>
@@ -113,6 +115,8 @@
 </DashboardLayout>
 
 <style>
+  .link-btn { background: none; border: none; padding: 0; color: var(--primary, #111); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .link-btn:hover { text-decoration: underline; color: var(--accent, #555); }
   .actions-row { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
   .dashboard-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
   .section-head { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-bottom: 1rem; }

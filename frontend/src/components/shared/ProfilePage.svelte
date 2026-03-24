@@ -9,11 +9,16 @@
 
   let user = getCurrentUser();
   let profile = null;
+  let mentorProfile = null;
   let editing = false;
+  let editingMentorProfile = false;
   let saving = false;
+  let mentorSaving = false;
   let loading = true;
   let error = '';
   let success = '';
+  let mentorError = '';
+  let mentorSuccess = '';
   let mounted = false;
 
   let editForm = {
@@ -25,11 +30,19 @@
     cpmNumber: ''
   };
 
+  let mentorEditForm = {
+    expertiseTags: '',
+    company: ''
+  };
+
   onMount(() => {
     mounted = true;
     if (!user) { window.location.href = '/'; return; }
 
     loadProfile();
+    if (user.role === 'INDUSTRY_MENTOR') {
+      loadMentorProfile();
+    }
 
     return () => {
       mounted = false;
@@ -44,6 +57,13 @@
       yearOfStudy: profile?.yearOfStudy || '',
       registrationNumber: profile?.registrationNumber || '',
       cpmNumber: profile?.cpmNumber || ''
+    };
+  }
+
+  function syncMentorEditForm() {
+    mentorEditForm = {
+      expertiseTags: mentorProfile?.expertiseTags || '',
+      company: mentorProfile?.company || ''
     };
   }
 
@@ -62,6 +82,21 @@
     } finally {
       if (mounted) {
         loading = false;
+      }
+    }
+  }
+
+  async function loadMentorProfile({ force = false } = {}) {
+    try {
+      const mentorId = user?.userId || user?.id;
+      const res = await api.get(`/recommendations/mentor-profile/${mentorId}`, { cache: !force });
+      if (!mounted) return;
+      mentorProfile = res?.data || {};
+      syncMentorEditForm();
+    } catch (e) {
+      if (mounted) {
+        mentorProfile = { expertiseTags: '', company: '' };
+        syncMentorEditForm();
       }
     }
   }
@@ -88,6 +123,36 @@
       saving = false;
     }
   }
+
+  async function saveMentorProfile() {
+    mentorSaving = true;
+    mentorError = '';
+    mentorSuccess = '';
+    try {
+      const mentorId = user?.userId || user?.id;
+      await api.post('/recommendations/mentor-profile', {
+        mentorId,
+        mentorName: profile?.fullName || user?.fullName,
+        mentorCategory: 'INDUSTRY_MENTOR',
+        expertiseTags: mentorEditForm.expertiseTags.trim(),
+        department: profile?.department,
+        company: mentorEditForm.company.trim()
+      });
+      if (!mounted) return;
+      mentorProfile = { 
+        expertiseTags: mentorEditForm.expertiseTags,
+        company: mentorEditForm.company 
+      };
+      syncMentorEditForm();
+      mentorSuccess = 'Interests and company updated successfully';
+      editingMentorProfile = false;
+      invalidateApiCache('/recommendations/mentor-profile');
+    } catch (e) {
+      mentorError = e?.data?.message || 'Failed to save interests and company';
+    } finally {
+      mentorSaving = false;
+    }
+  }
 </script>
 
 <DashboardLayout {navItems} {activeItem} {pageTitle}>
@@ -112,7 +177,7 @@
           <div class="profile-meta">
             <h2>{profile.fullName}</h2>
             <p class="role-badge">{profile.role?.replace('_', ' ')}</p>
-            <p class="email">{profile.email}</p>
+            <p class="email"><a href="mailto:{profile.email}" class="email-link">{profile.email}</a></p>
           </div>
           <button class="btn btn-outline" on:click={() => editing = !editing}>
             {editing ? 'Cancel' : 'Edit Profile'}
@@ -148,8 +213,6 @@
                   <label>Registration Number</label>
                   <input class="input" bind:value={editForm.registrationNumber} readonly />
                 </div>
-              {/if}
-              {#if profile.role === 'ACADEMIC_MENTOR'}
                 <div class="form-group">
                   <label>CPM Number</label>
                   <input class="input" bind:value={editForm.cpmNumber} />
@@ -167,7 +230,7 @@
             <div class="detail-grid">
               <div class="detail-item">
                 <span class="detail-label">Email</span>
-                <span class="detail-value">{profile.email}</span>
+                <span class="detail-value"><a href="mailto:{profile.email}" class="email-link">{profile.email}</a></span>
               </div>
               <div class="detail-item">
                 <span class="detail-label">Phone</span>
@@ -190,8 +253,6 @@
                   <span class="detail-label">Points</span>
                   <span class="detail-value points">{profile.cumulativePoints || 0}</span>
                 </div>
-              {/if}
-              {#if profile.role === 'ACADEMIC_MENTOR'}
                 <div class="detail-item">
                   <span class="detail-label">CPM Number</span>
                   <span class="detail-value">{profile.cpmNumber || '-'}</span>
@@ -201,6 +262,59 @@
           </div>
         {/if}
       </div>
+
+      {#if user.role === 'INDUSTRY_MENTOR'}
+        <div class="card mentor-profile-card">
+          <div class="section-header">
+            <div>
+              <p class="section-eyebrow">Mentor Matching</p>
+              <h3>Professional Profile & Interests</h3>
+            </div>
+            <button class="btn btn-outline" on:click={() => editingMentorProfile = !editingMentorProfile}>
+              {editingMentorProfile ? 'Cancel' : 'Set Interests'}
+            </button>
+          </div>
+
+          {#if mentorError}
+            <div class="alert alert-error">{mentorError}</div>
+          {/if}
+          {#if mentorSuccess}
+            <div class="alert alert-success">{mentorSuccess}</div>
+          {/if}
+
+          {#if editingMentorProfile}
+            <form class="mentor-edit-form" on:submit|preventDefault={saveMentorProfile}>
+              <div class="form-group">
+                <label for="expertise-tags">Areas of Expertise</label>
+                <input id="expertise-tags" class="input" bind:value={mentorEditForm.expertiseTags} placeholder="e.g. Cloud Architecture, DevOps, Microservices, Kubernetes" required />
+                <p class="helper-text">Enter your areas of expertise separated by commas. This helps match you with students.</p>
+              </div>
+              <div class="form-group">
+                <label for="company">Company / Organization</label>
+                <input id="company" class="input" bind:value={mentorEditForm.company} placeholder="e.g. Google, Amazon, Accenture" />
+                <p class="helper-text">Your current company or organization (optional).</p>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-outline" on:click={() => editingMentorProfile = false}>Cancel</button>
+                <button type="submit" class="btn btn-primary" disabled={mentorSaving}>
+                  {mentorSaving ? 'Saving...' : 'Save Interests'}
+                </button>
+              </div>
+            </form>
+          {:else}
+            <div class="mentor-details">
+              <div class="detail-item">
+                <span class="detail-label">Areas of Expertise</span>
+                <span class="detail-value">{mentorProfile?.expertiseTags || 'Not set yet'}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Company</span>
+                <span class="detail-value">{mentorProfile?.company || 'Not set yet'}</span>
+              </div>
+            </div>
+          {/if}
+        </div>
+      {/if}
     {:else}
       <div class="card loading-card">
         <p>Profile data is unavailable.</p>
@@ -210,6 +324,8 @@
 </DashboardLayout>
 
 <style>
+  .email-link { color: var(--primary, #111); text-decoration: none; }
+  .email-link:hover { text-decoration: underline; color: var(--accent, #555); }
   .profile-container {
     max-width: 800px;
   }
@@ -303,5 +419,67 @@
     text-align: center;
     padding: 3rem;
     color: var(--gray-400);
+  }
+
+  .mentor-profile-card {
+    padding: 2rem;
+    margin-top: 1.5rem;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.04) 0%, rgba(59, 130, 246, 0.04) 100%);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .section-eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    letter-spacing: 1px;
+    margin-bottom: 0.25rem;
+  }
+
+  .section-header h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    margin: 0;
+  }
+
+  .mentor-edit-form {
+    margin-top: 1rem;
+  }
+
+  .mentor-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+
+  .helper-text {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.375rem;
+  }
+
+  .input {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-300);
+    border-radius: var(--radius);
+    font-size: 0.875rem;
+    background: white;
+  }
+
+  .input:focus {
+    outline: none;
+    border-color: var(--blue-400);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   }
 </style>

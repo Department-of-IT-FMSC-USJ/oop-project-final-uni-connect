@@ -233,6 +233,7 @@
     <div class="modal-overlay" on:click|self={() => showCreate = false}>
       <div class="modal-content">
         <h2>Create Industry Session</h2>
+        {#if error}<div class="alert alert-error">{error}</div>{/if}
         <div class="form-grid">
           <div class="form-group full-width">
             <label for="industry-topic">Topic</label>

@@ -18,7 +18,6 @@
   let assistants = [];
   let showEvidenceReview = false;
   let showAddMentor = false;
-  let showAssistantHelp = false;
   let selectedProof = null;
   let proofReviewAction = 'APPROVE';
   let proofReviewForm = { points: '', note: '' };
@@ -42,6 +41,12 @@
   let dashboardRefreshTimer = null;
   let submissionOpen = false;
   let pendingSuggestionCount = 0;
+  let departmentSessions = [];
+
+  function setProofCollection(nextProofs) {
+    proofs = nextProofs;
+    pendingProofCount = proofs.filter((proof) => !proof.pointStatus || proof.pointStatus === 'PENDING').length;
+  }
 
   // Feedback filters
   let minRating = '';
@@ -53,7 +58,6 @@
   let mentorEmail = '';
   let mentorPassword = '';
   let mentorRole = 'ACADEMIC_MENTOR';
-  let mentorDepartment = 'Department of Information Technology';
   let mentorPhone = '';
   let mentorError = '';
   let mentorLoading = false;
@@ -90,7 +94,8 @@
         loadFeedbacks({ force }),
         loadTopStudents({ force }),
         loadProofs({ force }),
-        loadCurriculumSummary({ force })
+        loadCurriculumSummary({ force }),
+        loadDepartmentSessions({ force })
       ]);
     } catch (e) {
       if (!mounted || background) return;
@@ -116,6 +121,16 @@
       console.error('Failed to load curriculum summary', e);
       submissionOpen = false;
       pendingSuggestionCount = 0;
+    }
+  }
+
+  async function loadDepartmentSessions({ force = false } = {}) {
+    try {
+      const res = await api.get('/hod/sessions', { cache: !force });
+      if (!mounted) return;
+      departmentSessions = Array.isArray(res) ? res : [];
+    } catch (e) {
+      departmentSessions = [];
     }
   }
 
@@ -175,13 +190,26 @@
     try {
       const res = await api.get('/proofs', { cache: !force });
       if (!mounted) return;
-      proofs = Array.isArray(res) ? res : (res.data || []);
-      pendingProofCount = proofs.filter(p => p.latestStatus === 'PENDING' || !p.latestStatus).length;
+      setProofCollection(Array.isArray(res) ? res : (res.data || []));
     } catch (e) { console.error('Failed to load proofs', e); }
   }
 
   function getPendingProofs() {
-    return proofs.filter((proof) => !proof.latestStatus || proof.latestStatus === 'PENDING');
+    return proofs.filter((proof) => !proof.pointStatus || proof.pointStatus === 'PENDING');
+  }
+
+  function getEvidenceProofs() {
+    return [...proofs].sort((left, right) => {
+      const leftPending = !left?.pointStatus || left.pointStatus === 'PENDING';
+      const rightPending = !right?.pointStatus || right.pointStatus === 'PENDING';
+      if (leftPending !== rightPending) {
+        return leftPending ? -1 : 1;
+      }
+
+      const leftDate = left?.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightDate = right?.createdAt ? new Date(right.createdAt).getTime() : 0;
+      return rightDate - leftDate;
+    });
   }
 
   async function searchStudents() {
@@ -224,18 +252,16 @@
     };
     if (action === 'APPROVE') {
       payload.points = Number(proofReviewForm.points);
+      payload.category = ((selectedProof?.pointCategory || 'ACTIVITY') + '').toUpperCase();
     }
     try {
-      await api.put(`/proofs/${proofId}/review`, payload);
-      proofs = proofs.map((proof) => (
+      const reviewed = await api.put(`/proofs/${proofId}/review`, payload);
+      const reviewedProof = reviewed?.data || reviewed;
+      setProofCollection(proofs.map((proof) => (
         proof.id === proofId
-          ? {
-              ...proof,
-              latestStatus: action === 'APPROVE' ? 'APPROVED' : 'REJECTED'
-            }
+          ? { ...proof, ...reviewedProof }
           : proof
-      ));
-      pendingProofCount = getPendingProofs().length;
+      )));
       invalidateApiCache('/proofs');
       await Promise.all([
         loadProofs({ force: true }),
@@ -287,8 +313,8 @@
   async function submitAwardPoints() {
     pointError = '';
     if (!selectedStudent) return;
-    if (!pointForm.points || Number(pointForm.points) <= 0) {
-      pointError = 'Enter a valid point value.';
+    if (!pointForm.points || Number(pointForm.points) === 0) {
+      pointError = 'Enter a valid point value (positive or negative).';
       return;
     }
     pointLoading = true;
@@ -363,7 +389,6 @@
         email: mentorEmail,
         password: mentorPassword,
         role: mentorRole,
-        department: mentorDepartment,
         phone: mentorPhone
       });
       invalidateApiCache('/users');
@@ -383,6 +408,18 @@
 
   function renderStars(rating) {
     return Array.from({length: 5}, (_, i) => i < rating ? '★' : '☆').join('');
+  }
+
+  function formatProofCategory(value) {
+    return (value || 'ACTIVITY')
+      .toLowerCase()
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+  }
+
+  function formatProofStatus(value) {
+    return value || 'PENDING';
   }
 </script>
 
@@ -440,53 +477,39 @@
   </div>
 
   <div class="card assistants-card">
-    <div class="card-header">
-      <div>
-        <h2 class="card-title assistant-title">Department Assistants</h2>
-        <p class="section-copy">
-          {#if isDepartmentHead}
-            Create up to two assistants for the HOD workspace. They can manage operations, but they cannot create other assistants.
-          {:else}
-            Assistant access includes HOD operational pages, but assistant creation remains restricted to the department head.
-          {/if}
-        </p>
-      </div>
-      {#if isDepartmentHead}
-        <button class="btn btn-outline btn-sm" on:click={() => showAssistantHelp = !showAssistantHelp}>
-          {showAssistantHelp ? 'Hide Rules' : 'Assistant Rules'}
-        </button>
-      {/if}
-    </div>
-
-    {#if showAssistantHelp && isDepartmentHead}
-      <div class="assistant-help">
-        <p>Limit: 2 assistants per department head.</p>
-        <p>Allowed: mentor account creation, student and mentor lookup, feedback review, and evidence review.</p>
-        <p>Blocked: assistant accounts can never create or manage other assistants.</p>
-      </div>
-    {/if}
-
+    <h2 class="card-title assistant-title">Department Assistants</h2>
     {#if assistants.length === 0}
       <p class="empty-state">No department assistants created yet.</p>
     {:else}
-      <div class="assistant-list">
-        {#each assistants as assistant}
-          <div class="assistant-item">
-            <div>
-              <strong>{assistant.fullName}</strong>
-              <p>{assistant.email}</p>
-            </div>
-            <div class="assistant-meta">
-              <span>{assistant.department || '-'}</span>
-              <span>{assistant.phone || 'No phone'}</span>
-              {#if isDepartmentHead}
-                <button class="btn btn-danger btn-sm" on:click={() => requestDeleteUser(assistant.id, assistant.fullName)}>
-                  Delete
-                </button>
-              {/if}
-            </div>
-          </div>
-        {/each}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Department</th>
+              <th>Phone</th>
+              {#if isDepartmentHead}<th>Action</th>{/if}
+            </tr>
+          </thead>
+          <tbody>
+            {#each assistants as assistant}
+              <tr>
+                <td><strong>{assistant.fullName}</strong></td>
+                <td>{assistant.email}</td>
+                <td>{assistant.department || '-'}</td>
+                <td>{assistant.phone || '-'}</td>
+                {#if isDepartmentHead}
+                  <td>
+                    <button class="btn btn-danger btn-sm" on:click={() => requestDeleteUser(assistant.id, assistant.fullName)}>
+                      Delete
+                    </button>
+                  </td>
+                {/if}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
     {/if}
   </div>
@@ -501,7 +524,7 @@
           <tbody>
             {#each searchResults as student}
               <tr>
-                <td><strong>{student.fullName}</strong></td>
+                <td><button class="link-btn" on:click={() => openAwardPoints(student)}><strong>{student.fullName}</strong></button></td>
                 <td>{student.registrationNumber || '-'}</td>
                 <td>Year {student.yearOfStudy || '-'}</td>
                 <td><span class="badge badge-info">{student.cumulativePoints || 0}</span></td>
@@ -518,6 +541,39 @@
       <p class="empty-state">No students found for that search.</p>
     </div>
   {/if}
+
+  <!-- Scheduled Sessions -->
+  <div class="card" style="margin-bottom: 1.5rem;">
+    <h2 class="card-title">Scheduled Sessions</h2>
+    {#if departmentSessions.length === 0}
+      <p class="empty-state">No scheduled sessions from department mentors.</p>
+    {:else}
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Topic</th>
+              <th>Mentor</th>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each departmentSessions.slice(0, 10) as session}
+              <tr>
+                <td><strong>{session.sessionTitle}</strong></td>
+                <td>{session.mentorName}</td>
+                <td><span class="badge badge-info">{session.mentorType}</span></td>
+                <td>{session.sessionDate || '-'}</td>
+                <td>{session.sessionTime || '-'}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </div>
 
   <!-- Main Grid -->
   <div class="dashboard-grid">
@@ -567,7 +623,7 @@
               {#each topStudents as student, i}
                 <tr>
                   <td><strong>Rank {i + 1}</strong></td>
-                  <td>{student.fullName}</td>
+                  <td><button class="link-btn" on:click={() => openAwardPoints(student)}>{student.fullName}</button></td>
                   <td><strong>{student.cumulativePoints || 0}</strong></td>
                   <td>Year {student.yearOfStudy || '-'}</td>
                 </tr>
@@ -582,52 +638,59 @@
   <!-- Evidence Review Modal -->
   {#if showEvidenceReview}
     <div class="modal-overlay" on:click|self={() => showEvidenceReview = false}>
-      <div class="modal-content wide-modal">
+      <div class="modal-content wide-modal evidence-modal">
         <div class="modal-header">
-          <h2>Evidence Review</h2>
+          <div>
+            <p class="eyebrow">Review Submissions</p>
+            <h2>Student Evidence Review</h2>
+          </div>
           <button class="close-btn" on:click={() => showEvidenceReview = false}>✕</button>
         </div>
         {#if dashboardLoading && proofs.length === 0}
           <p class="empty-state">Loading evidence submissions...</p>
-        {:else if getPendingProofs().length === 0}
-          <p class="empty-state">No pending evidence submissions</p>
+        {:else if proofs.length === 0}
+          <p class="empty-state">No evidence submissions yet.</p>
         {:else}
-          <div class="table-wrapper">
-            <table>
-              <thead><tr><th>Student</th><th>Title</th><th>Category</th><th>Date</th><th>Evidence</th><th>Status</th><th>Actions</th></tr></thead>
-              <tbody>
-                {#each getPendingProofs() as proof}
-                  <tr>
-                    <td>{proof.studentName || `Student #${proof.studentId}`}</td>
-                    <td>{proof.title}</td>
-                    <td>{proof.pointCategory || '-'}</td>
-                    <td>{proof.eventDate || '-'}</td>
-                    <td>
-                      {#if proof.proofData}
-                        <a class="btn btn-outline btn-xs" href={proof.proofData} target="_blank" rel="noreferrer">View Link</a>
-                      {:else}
-                        <span class="text-muted">No link</span>
-                      {/if}
-                    </td>
-                    <td>
-                      <span class="badge" class:badge-warning={proof.latestStatus === 'PENDING' || !proof.latestStatus}
-                        class:badge-success={proof.latestStatus === 'APPROVED'}
-                        class:badge-danger={proof.latestStatus === 'REJECTED'}>
-                        {proof.latestStatus || 'PENDING'}
-                      </span>
-                    </td>
-                    <td>
-                      {#if !proof.latestStatus || proof.latestStatus === 'PENDING'}
-                        <button class="btn btn-success btn-xs" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
-                        <button class="btn btn-danger btn-xs" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
-                      {:else}
-                        <span class="text-muted">Reviewed</span>
-                      {/if}
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+          <div class="evidence-review-list">
+            {#each getEvidenceProofs() as proof}
+              <article class="evidence-review-card">
+                <div class="evidence-review-main">
+                  <div class="evidence-review-head">
+                    <div>
+                      <p class="evidence-student">{proof.studentName || `Student #${proof.studentId}`}</p>
+                      <h3>{proof.title}</h3>
+                    </div>
+                    <span
+                      class="badge"
+                      class:badge-warning={!proof.pointStatus || proof.pointStatus === 'PENDING'}
+                      class:badge-success={proof.pointStatus === 'APPROVED'}
+                      class:badge-danger={proof.pointStatus === 'REJECTED'}
+                    >
+                      {formatProofStatus(proof.pointStatus)}
+                    </span>
+                  </div>
+                  <p class="evidence-description">{proof.description || 'No extra note provided with this evidence submission.'}</p>
+                  <div class="evidence-meta">
+                    <span class="table-chip">{formatProofCategory(proof.pointCategory)}</span>
+                    <span class="table-chip table-chip-muted">{proof.eventDate || 'No date'}</span>
+                    {#if proof.latestPoints}
+                      <span class="table-chip table-chip-muted">{proof.latestPoints} pts</span>
+                    {/if}
+                  </div>
+                </div>
+                <div class="evidence-review-actions">
+                  {#if proof.proofData}
+                    <a class="btn btn-outline btn-sm" href={proof.proofData} target="_blank" rel="noreferrer">View Evidence</a>
+                  {/if}
+                  {#if !proof.pointStatus || proof.pointStatus === 'PENDING'}
+                    <button class="btn btn-success btn-sm" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
+                    <button class="btn btn-danger btn-sm" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
+                  {:else}
+                    <span class="reviewed-label">Already reviewed</span>
+                  {/if}
+                </div>
+              </article>
+            {/each}
           </div>
         {/if}
       </div>
@@ -636,38 +699,63 @@
 
   {#if selectedProof}
     <div class="modal-overlay" on:click|self={() => selectedProof = null}>
-      <div class="modal-content">
+      <div class="modal-content proof-review-modal">
         <div class="modal-header">
-          <h2>{proofReviewAction === 'APPROVE' ? 'Approve Evidence' : 'Reject Evidence'}</h2>
+          <div>
+            <p class="eyebrow">{proofReviewAction === 'APPROVE' ? 'Approve Submission' : 'Reject Submission'}</p>
+            <h2>{proofReviewAction === 'APPROVE' ? 'Approve Evidence' : 'Reject Evidence'}</h2>
+          </div>
           <button class="close-btn" on:click={() => selectedProof = null}>✕</button>
         </div>
-        {#if proofReviewError}<div class="alert-error">{proofReviewError}</div>{/if}
-        <p class="modal-desc">{selectedProof.studentName || `Student #${selectedProof.studentId}`} submitted "{selectedProof.title}".</p>
-        <div class="form-group">
-          <label>Review Note</label>
-          <textarea class="input" rows="3" bind:value={proofReviewForm.note} placeholder="Optional note for the student"></textarea>
-        </div>
-        <div class="detail-summary">
-          <div><strong>Category:</strong> {selectedProof.pointCategory || '-'}</div>
-          <div>
-            <strong>Evidence Link:</strong>
+        {#if proofReviewError}<div class="alert alert-error">{proofReviewError}</div>{/if}
+        
+        <div class="proof-review-content">
+          <div class="proof-info-card">
+            <div class="proof-info-row">
+              <span class="label">Student</span>
+              <span class="value">{selectedProof.studentName || `Student #${selectedProof.studentId}`}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Title</span>
+              <span class="value">{selectedProof.title}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Category</span>
+              <span class="value"><span class="badge badge-info">{formatProofCategory(selectedProof.pointCategory)}</span></span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Event Date</span>
+              <span class="value">{selectedProof.eventDate || '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Submitted Note</span>
+              <span class="value proof-note">{selectedProof.description || 'No note provided.'}</span>
+            </div>
             {#if selectedProof.proofData}
-              <a href={selectedProof.proofData} target="_blank" rel="noreferrer">Open submitted evidence</a>
-            {:else}
-              <span> Not available</span>
+              <div class="proof-info-row">
+                <span class="label">Evidence Link</span>
+                <a href={selectedProof.proofData} target="_blank" rel="noreferrer" class="link-button">Open in new tab</a>
+              </div>
             {/if}
           </div>
-        </div>
-        {#if proofReviewAction === 'APPROVE'}
+
           <div class="form-group">
-            <label>Points</label>
-            <input type="number" min="1" class="input" bind:value={proofReviewForm.points} />
+            <label for="review-note">Review Note</label>
+            <textarea id="review-note" class="input" rows="3" bind:value={proofReviewForm.note} placeholder="Optional note for the student"></textarea>
           </div>
-        {/if}
+
+          {#if proofReviewAction === 'APPROVE'}
+            <div class="form-group">
+              <label for="review-points">Points to Award</label>
+              <input id="review-points" type="number" class="input" bind:value={proofReviewForm.points} />
+            </div>
+          {/if}
+        </div>
+
         <div class="modal-actions">
           <button class="btn btn-outline" on:click={() => selectedProof = null}>Cancel</button>
           <button class="btn {proofReviewAction === 'APPROVE' ? 'btn-success' : 'btn-danger'}" on:click={submitProofReview} disabled={proofReviewLoading}>
-            {proofReviewLoading ? 'Saving...' : (proofReviewAction === 'APPROVE' ? 'Approve and Add Points' : 'Reject Evidence')}
+            {proofReviewLoading ? 'Saving...' : (proofReviewAction === 'APPROVE' ? 'Approve & Award Points' : 'Reject Evidence')}
           </button>
         </div>
       </div>
@@ -678,33 +766,33 @@
     <div class="modal-overlay" on:click|self={() => showAwardPoints = false}>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>Award Points</h2>
+          <h2>{Number(pointForm.points) < 0 ? 'Deduct Points' : 'Award Points'}</h2>
           <button class="close-btn" on:click={() => showAwardPoints = false}>✕</button>
         </div>
-        {#if pointError}<div class="alert-error">{pointError}</div>{/if}
-        <p class="modal-desc">Award points directly to {selectedStudent.fullName}.</p>
+        {#if pointError}<div class="alert alert-error">{pointError}</div>{/if}
+        <p class="modal-desc">Update the points balance for {selectedStudent.fullName}. Negative values deduct marks from the student.</p>
         <div class="form-row">
           <div class="form-group">
             <label>Points</label>
-            <input type="number" min="1" class="input" bind:value={pointForm.points} />
+            <input type="number" class="input" bind:value={pointForm.points} placeholder="Positive or negative values" />
+            <p class="helper-text">Use negative values to deduct points from the student.</p>
           </div>
           <div class="form-group">
             <label>Category</label>
             <select class="input" bind:value={pointForm.category}>
               <option value="ACTIVITY">Activity</option>
               <option value="AWARD">Award</option>
-              <option value="DIRECT">Direct</option>
             </select>
           </div>
         </div>
         <div class="form-group">
           <label>Note</label>
-          <textarea class="input" rows="3" bind:value={pointForm.note} placeholder="Reason for awarding these points"></textarea>
+          <textarea class="input" rows="3" bind:value={pointForm.note} placeholder="Reason for this adjustment"></textarea>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" on:click={() => showAwardPoints = false}>Cancel</button>
           <button class="btn btn-primary" on:click={submitAwardPoints} disabled={pointLoading}>
-            {pointLoading ? 'Saving...' : 'Award Points'}
+            {pointLoading ? 'Saving...' : (Number(pointForm.points) < 0 ? 'Deduct Points' : 'Award Points')}
           </button>
         </div>
       </div>
@@ -727,8 +815,8 @@
           {/if}
         </p>
 
-        {#if mentorError}<div class="alert-error">{mentorError}</div>{/if}
-        {#if mentorSuccess}<div class="alert-success">{mentorSuccess}</div>{/if}
+        {#if mentorError}<div class="alert alert-error">{mentorError}</div>{/if}
+        {#if mentorSuccess}<div class="alert alert-success">{mentorSuccess}</div>{/if}
 
         <form on:submit|preventDefault={createMentorAccount}>
           <div class="form-group">
@@ -755,20 +843,9 @@
             <label>Initial Password</label>
             <input type="text" class="input" bind:value={mentorPassword} required placeholder="Temporary password" />
           </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label>Department</label>
-              <select class="input" bind:value={mentorDepartment}>
-                <option>Department of Information Technology</option>
-                <option>Department of Computer Science</option>
-                <option>Department of Software Engineering</option>
-                <option>Department of Data Science</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label>Phone</label>
-              <input class="input" bind:value={mentorPhone} placeholder="+94 71 234 5678" />
-            </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input class="input" bind:value={mentorPhone} placeholder="+94 71 234 5678" />
           </div>
           <div class="modal-actions">
             <button type="button" class="btn btn-outline" on:click={() => showAddMentor = false}>Cancel</button>
@@ -794,6 +871,21 @@
 </DashboardLayout>
 
 <style>
+  .link-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--primary, #111);
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    text-align: left;
+  }
+  .link-btn:hover {
+    text-decoration: underline;
+    color: var(--accent, #555);
+  }
+
   .top-actions {
     display: flex;
     align-items: center;
@@ -812,10 +904,8 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 1.1rem 1.25rem;
-    background:
-      radial-gradient(circle at top right, rgba(59, 130, 246, 0.14), transparent 8rem),
-      rgba(255, 255, 255, 0.94);
+    padding: 1.5rem 2rem;
+    background: transparent;
   }
 
   .stat-label {
@@ -898,60 +988,6 @@
     color: #1d4ed8;
   }
 
-  .section-copy {
-    margin-top: 0.75rem;
-    color: var(--gray-600);
-  }
-
-  .assistant-help {
-    display: grid;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-    padding: 1rem;
-    border-radius: var(--radius);
-    background: var(--gray-50);
-    color: var(--gray-700);
-  }
-
-  .assistant-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .assistant-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    padding: 1rem;
-    border: 1px solid var(--gray-200);
-    border-radius: var(--radius);
-    background: white;
-  }
-
-  .assistant-item p {
-    margin-top: 0.25rem;
-    color: var(--gray-500);
-  }
-
-  .assistant-meta {
-    display: flex;
-    align-items: center;
-    gap: 0.65rem;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    color: var(--gray-600);
-    font-size: 0.875rem;
-  }
-
-  .assistant-meta span {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.38rem 0.7rem;
-    border-radius: 999px;
-    background: rgba(241, 245, 249, 0.9);
-  }
-
   .card-header {
     display: flex;
     justify-content: space-between;
@@ -962,11 +998,9 @@
   .card-title {
     font-size: 1rem;
     font-weight: 600;
-    padding: 0.5rem 1rem;
-    border-radius: var(--radius);
   }
-  .danger-title { background: #fee2e2; color: #991b1b; }
-  .success-title { background: #d1fae5; color: #065f46; }
+  .danger-title { color: var(--text-main); }
+  .success-title { color: var(--text-main); }
 
   .filter-select {
     padding: 0.6rem 0.9rem;
@@ -989,8 +1023,8 @@
 
   .table-wrapper { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-  th { text-align: left; padding: 0.75rem; font-weight: 600; color: var(--gray-600); border-bottom: 2px solid var(--gray-200); }
-  td { padding: 0.75rem; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); }
+  th { text-align: left; padding: 1rem 0.5rem; font-weight: 500; color: var(--text-muted); border-bottom: 1px solid var(--border-light); }
+  td { padding: 1rem 0.5rem; border-bottom: 1px solid var(--border-light); color: var(--text-main); }
   tr:hover td { background: var(--gray-50); }
 
   .search-results { margin-bottom: 1.5rem; }
@@ -999,6 +1033,13 @@
   .empty-state { color: var(--gray-400); font-size: 0.875rem; text-align: center; padding: 2rem; }
 
   .wide-modal { max-width: 800px; }
+  .evidence-modal {
+    max-width: 920px;
+    width: min(920px, 92vw);
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+  }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
   .modal-header h2 { font-size: 1.25rem; font-weight: 600; }
   .close-btn { background: none; font-size: 1.25rem; color: var(--gray-400); }
@@ -1027,14 +1068,239 @@
   .text-muted { color: var(--gray-400); font-size: 0.8125rem; }
   .filter-row { display: flex; gap: 0.5rem; }
 
+  .proof-review-modal { max-width: 600px; }
+  .proof-review-content { margin-bottom: 1.5rem; }
+  .evidence-review-list {
+    display: grid;
+    gap: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+    max-height: 60vh;
+    padding-right: 0.5rem;
+  }
+
+  .evidence-review-card {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 1rem;
+    padding: 1.25rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+  }
+
+  .evidence-review-main {
+    display: grid;
+    gap: 0.8rem;
+    min-width: 0;
+  }
+
+  .evidence-review-head {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .evidence-student {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    margin-bottom: 0.3rem;
+  }
+
+  .evidence-review-head h3 {
+    font-size: 1.05rem;
+    margin: 0;
+  }
+
+  .evidence-description {
+    color: var(--gray-600);
+    line-height: 1.55;
+    max-width: 42rem;
+  }
+
+  .evidence-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .evidence-review-actions {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: stretch;
+    gap: 0.55rem;
+    min-width: 9rem;
+  }
+
+  .reviewed-label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.8rem;
+    border-radius: 12px;
+    border: 1px solid var(--gray-200);
+    color: var(--gray-500);
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: var(--gray-50);
+  }
+
+  .table-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .table-chip-muted {
+    background: #ffffff;
+    color: var(--gray-600);
+  }
+
+  .proof-info-card {
+    background: var(--gray-50);
+    border: 1px solid var(--gray-100);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .proof-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--gray-200);
+  }
+
+  .proof-info-row:last-child {
+    border-bottom: none;
+  }
+
+  .proof-info-row .label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    letter-spacing: 0.5px;
+  }
+
+  .proof-info-row .value {
+    color: var(--gray-800);
+    font-size: 0.9375rem;
+    flex: 1;
+    text-align: right;
+  }
+
+  .proof-note {
+    max-width: 20rem;
+    white-space: normal;
+    line-height: 1.55;
+  }
+
+  .link-button {
+    display: inline-block;
+    padding: 0.375rem 0.875rem;
+    background: var(--blue-50);
+    border: 1px solid var(--blue-200);
+    border-radius: 0.375rem;
+    color: #2563eb;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.15s ease;
+  }
+
+  .link-button:hover {
+    background: var(--blue-100);
+    border-color: var(--blue-300);
+    color: #1d4ed8;
+  }
+
+  .action-buttons {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .filter-select {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--gray-200);
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    background-color: white;
+    color: var(--gray-700);
+    cursor: pointer;
+  }
+
+  @media (max-width: 900px) {
+    .top-actions,
+    .dashboard-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .top-actions {
+      display: grid;
+    }
+
+    .evidence-review-card {
+      grid-template-columns: 1fr;
+    }
+
+    .evidence-review-actions {
+      min-width: 0;
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: flex-start;
+    }
+
+    .form-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .proof-info-row {
+      flex-direction: column;
+      gap: 0.45rem;
+    }
+
+    .proof-info-row .value {
+      text-align: left;
+    }
+  }
+
+  .helper-text {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    margin-top: 0.375rem;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--gray-500);
+    letter-spacing: 1px;
+    margin-bottom: 0.25rem;
+    display: block;
+  }
+
   @media (max-width: 900px) {
     .stats-strip { grid-template-columns: 1fr; }
     .dashboard-grid { grid-template-columns: 1fr; }
     .top-actions { flex-wrap: wrap; }
-    .assistant-item {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-    .assistant-meta { justify-content: flex-start; }
   }
 </style>

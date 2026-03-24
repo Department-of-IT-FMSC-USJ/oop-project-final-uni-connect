@@ -18,4 +18,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     long countByRoleAndManagedByDepartmentHeadId(Role role, Long managedByDepartmentHeadId);
     long countByRoleAndManagedByDepartmentHeadIdAndActiveTrue(Role role, Long managedByDepartmentHeadId);
     Optional<User> findByRegistrationNumber(String registrationNumber);
+    List<User> findByRoleAndDepartmentAndActiveTrue(Role role, String department);
 }

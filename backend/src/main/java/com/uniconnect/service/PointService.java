@@ -29,7 +29,10 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.concurrent.ThreadLocalRandom;
 
+import org.springframework.transaction.annotation.Transactional;
+
 @Service
+@Transactional
 public class PointService {
 
     private final PointRecordRepository pointRecordRepository;
@@ -429,8 +432,8 @@ public class PointService {
     }
 
     private void validatePoints(PointCategory category, Integer points) {
-        if (points == null || points <= 0) {
-            throw new IllegalArgumentException("Points must be greater than zero.");
+        if (points == null || points == 0) {
+            throw new IllegalArgumentException("Points cannot be zero.");
         }
 
         int max = switch (category) {
@@ -438,7 +441,7 @@ public class PointService {
             case AWARD -> 25;
         };
 
-        if (points > max) {
+        if (Math.abs(points) > max) {
             throw new IllegalArgumentException("Points exceed allowed range for " + category);
         }
     }

@@ -26,16 +26,20 @@ public class MentorProfileRequestDTO {
     @Size(max = 100, message = "Department cannot exceed 100 characters")
     private String department;
 
+    @Size(max = 150, message = "Company cannot exceed 150 characters")
+    private String company;
+
     public MentorProfileRequestDTO() {
     }
 
     public MentorProfileRequestDTO(Integer mentorId, String mentorName, String mentorCategory,
-                                    String expertiseTags, String department) {
+                                    String expertiseTags, String department, String company) {
         this.mentorId = mentorId;
         this.mentorName = mentorName;
         this.mentorCategory = mentorCategory;
         this.expertiseTags = expertiseTags;
         this.department = department;
+        this.company = company;
     }
 
     // Getters and Setters
@@ -80,6 +84,14 @@ public class MentorProfileRequestDTO {
         this.department = department;
     }
 
+    public String getCompany() {
+        return company;
+    }
+
+    public void setCompany(String company) {
+        this.company = company;
+    }
+
     @Override
     public String toString() {
         return "MentorProfileRequestDTO{" +
@@ -88,6 +100,7 @@ public class MentorProfileRequestDTO {
                 ", mentorCategory='" + mentorCategory + '\'' +
                 ", expertiseTags='" + expertiseTags + '\'' +
                 ", department='" + department + '\'' +
+                ", company='" + company + '\'' +
                 '}';
     }
 }
