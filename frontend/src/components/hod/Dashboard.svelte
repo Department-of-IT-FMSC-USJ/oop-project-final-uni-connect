@@ -4,6 +4,7 @@
   import { hodNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -62,6 +63,30 @@
   let mentorError = '';
   let mentorLoading = false;
   let mentorSuccess = '';
+
+  const lowRatingOptions = [
+    { value: '', label: 'All ratings' },
+    { value: '1', label: '1 Star' },
+    { value: '2', label: 'Up to 2 Stars' },
+    { value: '3', label: 'Up to 3 Stars' }
+  ];
+
+  const pointCategoryOptions = [
+    { value: 'ACTIVITY', label: 'Activity' },
+    { value: 'AWARD', label: 'Award' }
+  ];
+
+  $: mentorRoleOptions = [
+    { value: 'ACADEMIC_MENTOR', label: 'Academic Mentor' },
+    { value: 'INDUSTRY_MENTOR', label: 'Industry Mentor' },
+    ...(isDepartmentHead
+      ? [{
+          value: 'DEPARTMENT_ASSISTANT',
+          label: `Department Assistant${assistantCount >= 2 ? ' (Limit Reached)' : ''}`,
+          disabled: assistantCount >= 2
+        }]
+      : [])
+  ];
 
   onMount(() => {
     mounted = true;
@@ -477,7 +502,7 @@
   </div>
 
   <div class="card assistants-card">
-    <h2 class="card-title assistant-title">Department Assistants</h2>
+    <h2 class="card-title">Department Assistants</h2>
     {#if assistants.length === 0}
       <p class="empty-state">No department assistants created yet.</p>
     {:else}
@@ -582,12 +607,9 @@
       <div class="card-header">
         <h2 class="card-title danger-title">Low Rating Feedback Sessions</h2>
         <div class="filter-row">
-          <select class="filter-select" bind:value={maxRating} on:change={() => loadFeedbacks({ force: true })}>
-            <option value="">All Ratings</option>
-            <option value="1">1 Star</option>
-            <option value="2">Up to 2 Stars</option>
-            <option value="3">Up to 3 Stars</option>
-          </select>
+          <div class="filter-control">
+            <CustomSelect options={lowRatingOptions} bind:value={maxRating} on:change={() => loadFeedbacks({ force: true })} />
+          </div>
         </div>
       </div>
       {#if dashboardLoading && feedbacks.length === 0}
@@ -779,10 +801,7 @@
           </div>
           <div class="form-group">
             <label>Category</label>
-            <select class="input" bind:value={pointForm.category}>
-              <option value="ACTIVITY">Activity</option>
-              <option value="AWARD">Award</option>
-            </select>
+            <CustomSelect options={pointCategoryOptions} bind:value={pointForm.category} />
           </div>
         </div>
         <div class="form-group">
@@ -821,15 +840,7 @@
         <form on:submit|preventDefault={createMentorAccount}>
           <div class="form-group">
             <label>Account Type</label>
-            <select class="input" bind:value={mentorRole}>
-              <option value="ACADEMIC_MENTOR">Academic Mentor</option>
-              <option value="INDUSTRY_MENTOR">Industry Mentor</option>
-              {#if isDepartmentHead}
-                <option value="DEPARTMENT_ASSISTANT" disabled={assistantCount >= 2}>
-                  Department Assistant{assistantCount >= 2 ? ' (Limit Reached)' : ''}
-                </option>
-              {/if}
-            </select>
+            <CustomSelect options={mentorRoleOptions} bind:value={mentorRole} />
           </div>
           <div class="form-group">
             <label>Full Name</label>
@@ -882,7 +893,7 @@
     text-align: left;
   }
   .link-btn:hover {
-    text-decoration: underline;
+    text-decoration: none;
     color: var(--primary-light);
   }
 
@@ -983,10 +994,6 @@
     margin-bottom: 1.5rem;
   }
 
-  .assistant-title {
-    background: var(--primary-100);
-    color: var(--primary-dark);
-  }
 
   .card-header {
     display: flex;
@@ -1068,6 +1075,10 @@
   .alert-success { background: var(--success-light); color: var(--success); padding: 0.75rem; border-radius: var(--radius); font-size: 0.8125rem; margin-bottom: 1rem; }
   .text-muted { color: var(--text-muted); font-size: 0.8125rem; }
   .filter-row { display: flex; gap: 0.5rem; }
+
+  .filter-control {
+    width: 11rem;
+  }
 
   .proof-review-modal { max-width: 600px; }
   .proof-review-content { margin-bottom: 1.5rem; }

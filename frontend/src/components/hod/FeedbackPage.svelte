@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api, getCurrentUser, getRoleDashboardPath, isHodWorkspaceRole } from '../../lib/api.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
 
   export let navItems = [];
   export let activeItem = 'feedback';
@@ -17,6 +18,24 @@
   let maxRating = '';
   let minRating = '';
   let query = '';
+
+  const minRatingOptions = [
+    { value: '', label: 'Min rating' },
+    { value: '1', label: '1 star' },
+    { value: '2', label: '2 stars' },
+    { value: '3', label: '3 stars' },
+    { value: '4', label: '4 stars' },
+    { value: '5', label: '5 stars' }
+  ];
+
+  const maxRatingOptions = [
+    { value: '', label: 'Max rating' },
+    { value: '1', label: '1 star' },
+    { value: '2', label: '2 stars' },
+    { value: '3', label: '3 stars' },
+    { value: '4', label: '4 stars' },
+    { value: '5', label: '5 stars' }
+  ];
 
   onMount(() => {
     if (!user) {
@@ -96,22 +115,12 @@
     <section class="card feedback-card">
       <div class="toolbar">
         <input class="input search-input" bind:value={query} placeholder="Search by mentor, session ID, or feedback text" />
-        <select class="input compact-input" bind:value={minRating} on:change={loadFeedbacks}>
-          <option value="">Min rating</option>
-          <option value="1">1 star</option>
-          <option value="2">2 stars</option>
-          <option value="3">3 stars</option>
-          <option value="4">4 stars</option>
-          <option value="5">5 stars</option>
-        </select>
-        <select class="input compact-input" bind:value={maxRating} on:change={loadFeedbacks}>
-          <option value="">Max rating</option>
-          <option value="1">1 star</option>
-          <option value="2">2 stars</option>
-          <option value="3">3 stars</option>
-          <option value="4">4 stars</option>
-          <option value="5">5 stars</option>
-        </select>
+        <div class="compact-input">
+          <CustomSelect options={minRatingOptions} bind:value={minRating} compact on:change={loadFeedbacks} />
+        </div>
+        <div class="compact-input">
+          <CustomSelect options={maxRatingOptions} bind:value={maxRating} compact on:change={loadFeedbacks} />
+        </div>
       </div>
 
       {#if error}

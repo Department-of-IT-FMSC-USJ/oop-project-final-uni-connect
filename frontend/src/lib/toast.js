@@ -59,3 +59,9 @@ export const toast = {
   warning: (payload, options) => showToast(normalizePayload('warning', payload, options)),
   error: (payload, options) => showToast(normalizePayload('error', payload, options))
 };
+
+export function addToast(payload, variant = 'info', options = {}) {
+  const notifier = toast[variant] || toast.info;
+  return notifier(payload, options);
+}
+

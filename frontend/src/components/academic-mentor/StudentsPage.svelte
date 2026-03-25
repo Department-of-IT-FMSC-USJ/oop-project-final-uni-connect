@@ -132,7 +132,7 @@
     text-align: left;
   }
   .link-btn:hover {
-    text-decoration: underline;
+    text-decoration: none;
     color: var(--primary-dark, #3A62B5);
   }
 

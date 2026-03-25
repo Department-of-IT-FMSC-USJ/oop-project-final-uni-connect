@@ -27,35 +27,45 @@
   .main {
     margin-left: var(--sidebar-width);
     margin-top: var(--header-height);
-    padding: 2.5rem 3rem;
+    padding: 2rem 2.5rem;
     min-height: calc(100vh - var(--header-height));
     background: var(--bg-alt);
     position: relative;
     transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    animation: slideIn 0.4s ease-out;
   }
 
   .content-shell {
     display: grid;
-    gap: 2rem;
-    max-width: 1280px;
+    gap: 1.5rem;
+    max-width: var(--content-max-width, 1000px);
     width: 100%;
     margin: 0 auto;
   }
 
   @media (max-width: 1280px) {
     .main {
-      padding: 2rem 2rem;
+      padding: 1.5rem 1.5rem;
     }
   }
 
   @media (max-width: 900px) {
     .main {
-      padding: 1.25rem;
+      padding: 1rem;
+      margin-left: 0;
     }
 
     .content-shell {
-      gap: 1.25rem;
+      gap: 1rem;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .main {
+      padding: 0.75rem;
+    }
+
+    .content-shell {
+      gap: 0.75rem;
     }
   }
 

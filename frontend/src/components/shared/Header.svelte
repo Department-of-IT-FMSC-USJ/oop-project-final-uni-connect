@@ -2,11 +2,10 @@
   export let title = '';
   export let brandName = 'UniConnect';
   
-  import { onMount, createEventDispatcher } from 'svelte';
-  import { logout, getCurrentUser, api, getRoleDashboardPath } from '../../lib/api.js';
+  import { onMount } from 'svelte';
+  import { getCurrentUser, api } from '../../lib/api.js';
 
   let user = getCurrentUser();
-  let showDropdown = false;
   let showNotifications = false;
   let messageNotifications = [];
   let systemNotifications = [];
@@ -15,19 +14,10 @@
   let notificationError = '';
   let notificationTimer = null;
   let notificationsUnavailable = false;
-  let notificationRoot;
-  let dropdownRoot;
   let sidebarCollapsed = false;
 
   const SIDEBAR_COLLAPSE_KEY = 'ui.sidebarCollapsed';
   const NOTIFICATIONS_CLEARED_AT_KEY = 'notifications.clearedAt';
-
-  function toggleDropdown() {
-    showDropdown = !showDropdown;
-    if (showDropdown) {
-      showNotifications = false;
-    }
-  }
 
   async function loadNotifications() {
     if (notificationsUnavailable) {
@@ -74,13 +64,16 @@
   async function toggleNotifications() {
     showNotifications = !showNotifications;
     if (showNotifications) {
-      showDropdown = false;
       await loadNotifications();
       if (!notificationsUnavailable && systemUnreadCount > 0) {
         await api.put('/notifications/mark-all-read', {});
         systemUnreadCount = 0;
       }
     }
+  }
+
+  function closeNotifications() {
+    showNotifications = false;
   }
 
   async function clearNotifications() {
@@ -94,10 +87,6 @@
     } catch (e) {
       console.error('Failed to clear', e);
     }
-  }
-
-  function handleLogout() {
-    logout();
   }
 
   function openConversation(userId) {
@@ -120,41 +109,6 @@
     if (item?.link) {
       window.location.href = item.link;
     }
-  }
-
-  function formatRole(role) {
-    return (role || 'USER')
-      .split('_')
-      .map((part) => part.charAt(0) + part.slice(1).toLowerCase())
-      .join(' ');
-  }
-
-  function goToDashboard() {
-    showDropdown = false;
-    window.location.href = getRoleDashboardPath(user?.role);
-  }
-
-  function getProfilePath() {
-    switch (user?.role) {
-      case 'UNDERGRADUATE':
-        return '/undergraduate/profile';
-      case 'ACADEMIC_MENTOR':
-        return '/academic-mentor/profile';
-      case 'INDUSTRY_MENTOR':
-        return '/industry-mentor/profile';
-      case 'DEPARTMENT_HEAD':
-      case 'DEPARTMENT_ASSISTANT':
-        return '/hod/profile';
-      default:
-        return '';
-    }
-  }
-
-  function goToProfile() {
-    const profilePath = getProfilePath();
-    if (!profilePath) return;
-    showDropdown = false;
-    window.location.href = profilePath;
   }
 
   function applySidebarState(collapsed) {
@@ -197,28 +151,25 @@
 
   onMount(() => {
     const persisted = localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+    // Apply sidebar state without transition to prevent flash on page load
+    document.body.setAttribute('data-no-sidebar-transition', '');
     applySidebarState(persisted === '1');
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.body.removeAttribute('data-no-sidebar-transition');
+      });
+    });
     loadNotifications();
     notificationTimer = window.setInterval(loadNotifications, 15000);
     const handler = () => loadNotifications();
-    const clickHandler = (event) => {
-      if (showNotifications && notificationRoot && !notificationRoot.contains(event.target)) {
-        showNotifications = false;
-      }
-      if (showDropdown && dropdownRoot && !dropdownRoot.contains(event.target)) {
-        showDropdown = false;
-      }
-    };
     const sidebarHandler = (e) => sidebarCollapsed = e.detail.collapsed;
 
     window.addEventListener('messages:updated', handler);
-    document.addEventListener('click', clickHandler);
     window.addEventListener('sidebar:state-change', sidebarHandler);
 
     return () => {
       if (notificationTimer) window.clearInterval(notificationTimer);
       window.removeEventListener('messages:updated', handler);
-      document.removeEventListener('click', clickHandler);
       window.removeEventListener('sidebar:state-change', sidebarHandler);
     };
   });
@@ -234,7 +185,9 @@
           <line x1="3" y1="18" x2="21" y2="18"></line>
         </svg>
       </button>
-      <span class="brand-text">{brandName}</span>
+      <a href="/" class="brand-link" title="Go to home">
+        <img src="/logo.jpg" alt="UniConnect" class="brand-logo" />
+      </a>
       {#if title}
         <span class="divider">/</span>
         <h1 class="header-title">{title}</h1>
@@ -243,139 +196,129 @@
   </div>
 
   <div class="header-actions">
-    <div class="notifications" bind:this={notificationRoot}>
-      <button class="icon-btn panel-toggle" class:active={showNotifications} title="Notifications" on:click={toggleNotifications}>
-        {#if messageUnreadCount + systemUnreadCount > 0}
-          <span class="notification-badge">{messageUnreadCount + systemUnreadCount}</span>
-        {/if}
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <button
+      class="icon-btn notification-trigger"
+      class:active={showNotifications}
+      title="Notifications"
+      on:click={toggleNotifications}
+    >
+      {#if messageUnreadCount + systemUnreadCount > 0}
+        <span class="notification-badge">{messageUnreadCount + systemUnreadCount}</span>
+      {/if}
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<!-- macOS-style slide-in notification panel -->
+{#if showNotifications}
+  <div class="notification-backdrop" on:click={closeNotifications}></div>
+{/if}
+<aside class="notification-drawer" class:open={showNotifications}>
+  <div class="drawer-header">
+    <h2 class="drawer-title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      Notifications
+    </h2>
+    <div class="drawer-header-actions">
+      <span class="unread-badge">{messageUnreadCount + systemUnreadCount} unread</span>
+      <button class="drawer-clear-btn" on:click={clearNotifications} title="Clear all notifications">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+        Clear
+      </button>
+      <button class="drawer-close-btn" on:click={closeNotifications} aria-label="Close notifications">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="drawer-scroll">
+    {#if notificationError}
+      <p class="notification-empty">{notificationError}</p>
+    {:else if notificationsUnavailable}
+      <p class="notification-empty">Notifications will appear after the backend is restarted with the latest routes.</p>
+    {:else if systemNotifications.length === 0 && messageNotifications.length === 0}
+      <div class="notification-empty-state">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
         </svg>
-      </button>
-
-      {#if showNotifications}
-        <div class="notification-panel">
-          <div class="notification-head">
-            <div>
-              <strong>Notifications</strong>
-              <span class="notification-count">{messageUnreadCount + systemUnreadCount} unread</span>
-            </div>
-            <button class="btn btn-text btn-xs" style="color: var(--danger); padding: 0.2rem 0.6rem;" on:click={clearNotifications}>Clear</button>
-          </div>
-
-          <div class="notification-scroll">
-            {#if notificationError}
-              <p class="notification-empty">{notificationError}</p>
-            {:else if notificationsUnavailable}
-              <p class="notification-empty">Notifications will appear after the backend is restarted with the latest routes.</p>
-            {:else if systemNotifications.length === 0 && messageNotifications.length === 0}
-              <p class="notification-empty">No notifications yet. New messages and alerts will appear here.</p>
-            {:else}
-              {#if systemNotifications.length > 0}
-                <div class="notification-section-title">System</div>
-                {#each systemNotifications as item}
-                  <button class="notification-item" on:click={() => openSystemNotification(item)}>
-                    <div class="notification-chip system">System</div>
-                    <div class="notification-row">
-                      <strong>{item.title}</strong>
-                      <span class="notification-time">{formatWhen(item.createdAt)}</span>
-                    </div>
-                    <p>{item.message}</p>
-                  </button>
-                {/each}
-              {/if}
-              {#if messageNotifications.length > 0}
-                <div class="notification-section-title">Messages</div>
-                {#each messageNotifications as item}
-                  <button class="notification-item" on:click={() => openConversation(item.userId)}>
-                    <div class="notification-chip message">Direct message</div>
-                    <div class="notification-row">
-                      <strong>{item.fullName}</strong>
-                      {#if item.unreadCount > 0}
-                        <span class="notification-pill">{item.unreadCount}</span>
-                      {:else}
-                        <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
-                      {/if}
-                    </div>
-                    <p>{item.lastMessage || 'New message'}</p>
-                    {#if item.unreadCount > 0}
-                      <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
-                    {/if}
-                  </button>
-                {/each}
-              {/if}
-            {/if}
-          </div>
+        <p>All caught up!</p>
+        <span>New messages and alerts will appear here.</span>
+      </div>
+    {:else}
+      {#if systemNotifications.length > 0}
+        <div class="notification-section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8" x2="12.01" y2="8"/>
+          </svg>
+          System
         </div>
-      {/if}
-    </div>
-
-    <div class="user-menu" bind:this={dropdownRoot}>
-      <button class="user-btn" class:active={showDropdown} on:click={toggleDropdown}>
-        <div class="avatar">
-          {#if user?.profilePicture}
-            <img src={user.profilePicture} alt="" />
-          {:else}
-            <span>{user?.fullName?.charAt(0) || 'U'}</span>
-          {/if}
-        </div>
-        <div class="user-copy">
-          <span class="user-name">{user?.fullName || 'User'}</span>
-          <span class="user-role">{formatRole(user?.role)}</span>
-        </div>
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M6 9l6 6 6-6"/>
-        </svg>
-      </button>
-
-      {#if showDropdown}
-        <div class="dropdown">
-          <div class="dropdown-profile">
-            <div class="avatar dropdown-avatar">
-              {#if user?.profilePicture}
-                <img src={user.profilePicture} alt="" />
-              {:else}
-                <span>{user?.fullName?.charAt(0) || 'U'}</span>
-              {/if}
-            </div>
-            <div>
-              <strong>{user?.fullName || 'User'}</strong>
-              <p>{user?.email || formatRole(user?.role)}</p>
-            </div>
-          </div>
-          <button type="button" class="dropdown-item" on:click={goToDashboard}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="3" y="3" width="7" height="9" rx="1"/>
-              <rect x="14" y="3" width="7" height="5" rx="1"/>
-              <rect x="14" y="12" width="7" height="9" rx="1"/>
-              <rect x="3" y="16" width="7" height="5" rx="1"/>
-            </svg>
-            Dashboard
-          </button>
-          {#if getProfilePath()}
-            <button type="button" class="dropdown-item" on:click={goToProfile}>
+        {#each systemNotifications as item}
+          <button class="notification-item" on:click={() => openSystemNotification(item)}>
+            <div class="notification-icon system-icon">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20 21a8 8 0 0 0-16 0"/>
-                <circle cx="12" cy="7" r="4"/>
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
               </svg>
-              Profile
-            </button>
-          {/if}
-          <div class="dropdown-divider"></div>
-          <button type="button" class="dropdown-item" on:click={handleLogout}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            Logout
+            </div>
+            <div class="notification-body">
+              <div class="notification-row">
+                <strong>{item.title}</strong>
+                <span class="notification-time">{formatWhen(item.createdAt)}</span>
+              </div>
+              <p>{item.message}</p>
+            </div>
           </button>
-        </div>
+        {/each}
       {/if}
-    </div>
+      {#if messageNotifications.length > 0}
+        <div class="notification-section-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+          </svg>
+          Messages
+        </div>
+        {#each messageNotifications as item}
+          <button class="notification-item" on:click={() => openConversation(item.userId)}>
+            <div class="notification-icon message-icon">
+              <span>{item.fullName?.charAt(0) || 'M'}</span>
+            </div>
+            <div class="notification-body">
+              <div class="notification-row">
+                <strong>{item.fullName}</strong>
+                {#if item.unreadCount > 0}
+                  <span class="notification-pill">{item.unreadCount}</span>
+                {:else}
+                  <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
+                {/if}
+              </div>
+              <p>{item.lastMessage || 'New message'}</p>
+              {#if item.unreadCount > 0}
+                <span class="notification-time">{formatWhen(item.lastMessageAt)}</span>
+              {/if}
+            </div>
+          </button>
+        {/each}
+      {/if}
+    {/if}
   </div>
-</header>
+</aside>
 
 
 <style>
@@ -392,7 +335,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 2rem;
+    padding: 0 1.5rem;
     z-index: 110;
     transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
@@ -401,50 +344,68 @@
     display: flex;
     align-items: center;
     flex: 1;
+    min-width: 0;
   }
 
   .title-row {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    min-width: 0;
   }
 
-  .brand-text {
-    font-family: 'Times New Roman', serif;
-    font-size: 1.5rem;
-    font-weight: 700;
-    letter-spacing: -0.04em;
-    color: var(--primary);
-    margin-left: 0.5rem;
+  .brand-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    margin-left: 0.4rem;
+    flex-shrink: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .brand-link:hover {
+    opacity: 0.8;
+    text-decoration: none;
+  }
+
+  .brand-logo {
+    height: 36px;
+    width: auto;
+    display: block;
+    object-fit: contain;
   }
 
   .divider {
-    margin: 0 0.5rem;
+    margin: 0 0.35rem;
     color: var(--border-light);
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: 300;
   }
 
   .header-title {
-    font-size: 1.05rem;
+    font-size: 0.9rem;
     font-weight: 600;
     color: var(--text-secondary);
     margin: 0;
     padding: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .header-actions {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   .icon-btn {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: var(--radius-sm);
     background: transparent;
     color: var(--text-secondary);
@@ -466,24 +427,26 @@
     transform: scaleX(-1);
   }
 
-  .panel-toggle.active {
+  .notification-trigger {
+    position: relative;
+  }
+
+  .notification-trigger.active {
     background: var(--primary-50);
     color: var(--primary);
   }
 
-  .notifications { position: relative; }
-
   .notification-badge {
     position: absolute;
-    top: -4px;
-    right: -4px;
-    min-width: 20px;
-    height: 20px;
-    padding: 0 0.4rem;
+    top: -3px;
+    right: -3px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 0.3rem;
     border-radius: 99px;
     background: var(--primary);
     color: white;
-    font-size: 0.65rem;
+    font-size: 0.6rem;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -492,89 +455,222 @@
     box-shadow: 0 1px 3px rgba(79, 124, 219, 0.3);
   }
 
-  .notification-panel {
-    position: absolute;
-    top: calc(100% + 0.75rem);
+  /* ─── Notification Backdrop (click-outside-to-close) ─── */
+  .notification-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.18);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 199;
+    animation: fadeIn 0.2s ease;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* ─── Slide-in Drawer (macOS-style) ─── */
+  .notification-drawer {
+    position: fixed;
+    top: 0;
     right: 0;
-    width: 360px;
-    max-height: 480px;
-    background: var(--bg-main);
-    border: 1px solid var(--border-light);
-    border-radius: var(--radius);
-    box-shadow: var(--shadow-lg);
-    padding: 0;
+    bottom: 0;
+    width: 380px;
+    max-width: 92vw;
+    background: var(--bg-main, #fff);
+    border-left: 1px solid var(--border-light, #E2E8F0);
+    box-shadow: -8px 0 40px rgba(0, 0, 0, 0.08);
     z-index: 200;
-    animation: slideIn 0.25s ease-out;
-    overflow: hidden;
-  }
-
-  .notification-head {
     display: flex;
-    justify-content: space-between;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+    will-change: transform;
+  }
+
+  .notification-drawer.open {
+    transform: translateX(0);
+  }
+
+  .drawer-header {
+    display: flex;
     align-items: center;
-    padding: 0.85rem 1rem;
-    margin-bottom: 0;
-    background: var(--primary-50);
-    border-bottom: 1px solid var(--border-light);
-    font-family: var(--font-ui);
+    justify-content: space-between;
+    padding: 1.15rem 1.25rem;
+    border-bottom: 1px solid var(--border-light, #E2E8F0);
+    background: linear-gradient(135deg, var(--primary-50, #EEF2FB) 0%, var(--bg-main, #fff) 100%);
+    flex-shrink: 0;
+  }
+
+  .drawer-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--primary-dark);
+    font-weight: 700;
+    color: var(--text-main, #1E293B);
+    margin: 0;
+    font-family: var(--font-ui, 'Inter', sans-serif);
   }
 
-  .notification-count {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    font-weight: 400;
-    margin-left: 0.5rem;
+  .drawer-title svg {
+    color: var(--primary, #4F7CDB);
   }
 
-  .notification-empty {
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    padding: 2.5rem 1.25rem;
-    text-align: center;
+  .drawer-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .unread-badge {
+    font-size: 0.68rem;
+    color: var(--text-muted, #94A3B8);
+    font-weight: 500;
     font-family: var(--font-ui);
-    line-height: 1.5;
   }
 
-  .notification-scroll {
-    max-height: 380px;
+  .drawer-clear-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--radius-sm, 8px);
+    background: transparent;
+    border: 1px solid var(--border-light, #E2E8F0);
+    color: var(--text-muted, #94A3B8);
+    font-size: 0.72rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: var(--font-ui);
+  }
+
+  .drawer-clear-btn:hover {
+    background: rgba(239, 68, 68, 0.08);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--danger, #EF4444);
+  }
+
+  .drawer-close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: var(--radius-sm, 8px);
+    background: transparent;
+    border: none;
+    color: var(--text-muted, #94A3B8);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .drawer-close-btn:hover {
+    background: var(--bg-alt, #F8FAFC);
+    color: var(--text-main, #1E293B);
+  }
+
+  .drawer-scroll {
+    flex: 1;
     overflow-y: auto;
     padding: 0.5rem;
   }
 
+  .drawer-scroll::-webkit-scrollbar {
+    width: 5px;
+  }
+  .drawer-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .drawer-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-light, #E2E8F0);
+    border-radius: 99px;
+  }
+
+  /* ─── Notification Items ─── */
+  .notification-section-title {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin: 0.8rem 0.6rem 0.5rem;
+    font-family: var(--font-ui);
+    font-weight: 600;
+  }
+
+  .notification-section-title svg {
+    opacity: 0.6;
+  }
+
   .notification-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
     width: 100%;
     text-align: left;
     padding: 0.75rem;
-    border-radius: var(--radius-sm);
+    border-radius: var(--radius-sm, 8px);
     background: transparent;
     border: 1px solid transparent;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.2rem;
     cursor: pointer;
     font-family: var(--font-ui);
-    transition: background var(--transition-fast), border-color var(--transition-fast);
+    transition: background 0.15s ease, border-color 0.15s ease;
   }
 
   .notification-item:hover {
-    background: var(--primary-50);
-    border-color: var(--border-light);
+    background: var(--primary-50, #EEF2FB);
+    border-color: var(--border-light, #E2E8F0);
+  }
+
+  .notification-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-family: var(--font-ui);
+  }
+
+  .system-icon {
+    background: rgba(245, 158, 11, 0.12);
+    color: var(--warning, #F59E0B);
+  }
+
+  .message-icon {
+    background: var(--primary-50, #EEF2FB);
+    color: var(--primary, #4F7CDB);
+  }
+
+  .notification-body {
+    flex: 1;
+    min-width: 0;
   }
 
   .notification-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 0.75rem;
-    margin-bottom: 0.35rem;
+    gap: 0.5rem;
+    margin-bottom: 0.2rem;
     font-weight: 500;
+    font-size: 0.8rem;
     color: var(--text-main);
   }
 
   .notification-item p {
     color: var(--text-muted);
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     margin: 0;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -582,38 +678,21 @@
     overflow: hidden;
   }
 
-  .notification-chip {
-    display: inline-flex;
-    margin-bottom: 0.5rem;
-    font-size: 0.65rem;
-    font-weight: 700;
-    color: var(--primary);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-  }
-
-  .notification-chip.system {
-    color: var(--warning);
-  }
-
-  .notification-chip.message {
-    color: var(--primary);
-  }
-
   .notification-time {
     color: var(--text-muted);
-    font-size: 0.8rem;
+    font-size: 0.68rem;
     font-weight: 400;
+    white-space: nowrap;
   }
 
   .notification-pill {
-    min-width: 22px;
-    height: 22px;
-    padding: 0 0.4rem;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 0.35rem;
     border-radius: 99px;
     background: var(--primary);
     color: white;
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     font-weight: 700;
     display: inline-flex;
     align-items: center;
@@ -621,161 +700,66 @@
     box-shadow: 0 1px 3px rgba(79, 124, 219, 0.3);
   }
 
-  .notification-section-title {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+  .notification-empty {
     color: var(--text-muted);
-    margin: 0.75rem 0.5rem 0.5rem;
-    font-family: var(--font-ui);
-    font-weight: 600;
-  }
-
-  .user-menu { position: relative; }
-
-  .user-btn {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.35rem 0.6rem 0.35rem 0.35rem;
-    border-radius: 99px;
-    background: transparent;
-    color: var(--text-main);
-    border: 1px solid var(--border-light);
-    transition: all var(--transition-fast);
-    cursor: pointer;
-  }
-
-  .user-btn:hover,
-  .user-btn.active {
-    background: var(--primary-50);
-    border-color: var(--primary-light);
-  }
-
-  .avatar {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    background: var(--primary-50);
-    color: var(--primary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.9rem;
-    font-weight: 600;
-    font-family: var(--font-ui);
-    overflow: hidden;
-    border: 2px solid var(--bg-main);
-    box-shadow: 0 0 0 1px var(--border-light);
-    flex-shrink: 0;
-  }
-
-  .avatar img { width: 100%; height: 100%; object-fit: cover; }
-
-  .dropdown-avatar {
-    width: 42px;
-    height: 42px;
-    font-size: 1rem;
-  }
-
-  .user-copy {
-    display: grid;
-    text-align: left;
-    line-height: 1.3;
-    font-family: var(--font-ui);
-  }
-
-  .user-name {
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-main);
-  }
-
-  .user-role {
-    font-size: 0.72rem;
-    color: var(--text-muted);
-    font-weight: 400;
-  }
-
-  .dropdown {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 0.75rem;
-    background: var(--bg-main);
-    border-radius: var(--radius);
-    border: 1px solid var(--border-light);
-    box-shadow: var(--shadow-lg);
-    min-width: 240px;
-    padding: 0.5rem;
-    font-family: var(--font-ui);
-    z-index: 200;
-    animation: slideIn 0.25s ease-out;
-  }
-
-  .dropdown-profile {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.85rem;
-    margin-bottom: 0.5rem;
-    border-radius: var(--radius-sm);
-    background: var(--primary-50);
-  }
-
-  .dropdown-profile strong {
-    color: var(--text-main);
-    font-size: 0.9rem;
-    font-weight: 600;
-    display: block;
-  }
-
-  .dropdown-profile p {
-    margin-top: 0.15rem;
     font-size: 0.8rem;
-    margin-bottom: 0;
-    color: var(--text-muted);
+    padding: 2rem 1rem;
+    text-align: center;
+    font-family: var(--font-ui);
+    line-height: 1.5;
   }
 
-  .dropdown-divider {
-    height: 1px;
-    margin: 0.5rem 0;
-    background: var(--border-light);
-  }
-
-  .dropdown-item {
+  .notification-empty-state {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.75rem;
-    width: 100%;
-    padding: 0.65rem 0.75rem;
-    border-radius: var(--radius-sm);
+    gap: 0.5rem;
+    padding: 3rem 1rem;
+    text-align: center;
+    color: var(--text-muted, #94A3B8);
+    font-family: var(--font-ui);
+  }
+
+  .notification-empty-state svg {
+    opacity: 0.3;
+    margin-bottom: 0.5rem;
+  }
+
+  .notification-empty-state p {
     font-size: 0.9rem;
-    color: var(--text-main);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    transition: all var(--transition-fast);
+    font-weight: 600;
+    color: var(--text-secondary, #475569);
+    margin: 0;
   }
 
-  .dropdown-item:hover {
-    background: var(--primary-50);
-    color: var(--primary);
+  .notification-empty-state span {
+    font-size: 0.78rem;
+    color: var(--text-muted, #94A3B8);
   }
 
-  .dropdown-item svg {
-    opacity: 0.6;
-    transition: opacity var(--transition-fast);
-  }
-
-  .dropdown-item:hover svg {
-    opacity: 1;
-  }
-
-  @media (max-width: 900px) {
+  /* Responsive breakpoints */
+  @media (max-width: 1024px) {
     .header { padding: 0 1rem; }
-    .user-copy { display: none; }
-    .notification-panel { width: min(360px, calc(100vw - 2rem)); right: -0.5rem; }
+  }
+
+  @media (max-width: 768px) {
+    .header { padding: 0 0.75rem; }
+    .notification-drawer { width: 340px; }
+    .header-title { max-width: 120px; }
+    .brand-logo { height: 30px; }
+  }
+
+  @media (max-width: 480px) {
+    .header { padding: 0 0.5rem; }
+    .notification-drawer { width: 100vw; max-width: 100vw; }
+    .brand-logo { height: 28px; }
+    .divider, .header-title { display: none; }
+  }
+
+  /* Suppress sidebar/header transitions on initial page load */
+  :global([data-no-sidebar-transition] .sidebar),
+  :global([data-no-sidebar-transition] .main) {
+    transition: none !important;
   }
 
 </style>

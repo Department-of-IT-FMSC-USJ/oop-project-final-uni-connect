@@ -3,6 +3,7 @@
   import { api, downloadWithAuth, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
   import { undergraduateNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -186,6 +187,17 @@
   }
 
   const yearOptions = ['1', '2', '3', '4'];
+
+  const materialTypeOptions = [
+    { value: 'NOTES', label: 'Notes' },
+    { value: 'PAST_PAPERS', label: 'Past Papers' },
+    { value: 'LECTURE_SLIDES', label: 'Lecture Slides' },
+    { value: 'OTHER', label: 'Other' }
+  ];
+
+  const typeFilterOptions = [{ value: '', label: 'All types' }, ...materialTypeOptions];
+  const yearFilterOptions = [{ value: '', label: 'All years' }, ...yearOptions.map((year) => ({ value: year, label: `Year ${year}` }))];
+  const uploadYearOptions = [{ value: '', label: 'Select year' }, ...yearOptions.map((year) => ({ value: year, label: `Year ${year}` }))];
 </script>
 
 <DashboardLayout navItems={undergraduateNavItems} activeItem="note-pool" pageTitle="Note Pool">
@@ -204,19 +216,12 @@
         <input class="input search-input" bind:value={query} placeholder="Search by title, description, uploader, or type" />
       </div>
       <div class="toolbar-filters">
-        <select class="input compact" bind:value={typeFilter}>
-          <option value="">All types</option>
-          <option value="NOTES">Notes</option>
-          <option value="PAST_PAPERS">Past Papers</option>
-          <option value="LECTURE_SLIDES">Lecture Slides</option>
-          <option value="OTHER">Other</option>
-        </select>
-        <select class="input compact" bind:value={yearFilter}>
-          <option value="">All years</option>
-          {#each yearOptions as year}
-            <option value={year}>Year {year}</option>
-          {/each}
-        </select>
+        <div class="toolbar-filter">
+          <CustomSelect options={typeFilterOptions} bind:value={typeFilter} compact />
+        </div>
+        <div class="toolbar-filter">
+          <CustomSelect options={yearFilterOptions} bind:value={yearFilter} compact />
+        </div>
       </div>
     </div>
 
@@ -287,21 +292,11 @@
           </div>
           <div class="form-group">
             <label for="note-type">Type</label>
-            <select id="note-type" class="input" bind:value={form.materialType}>
-              <option value="NOTES">Notes</option>
-              <option value="PAST_PAPERS">Past Papers</option>
-              <option value="LECTURE_SLIDES">Lecture Slides</option>
-              <option value="OTHER">Other</option>
-            </select>
+            <CustomSelect id="note-type" options={materialTypeOptions} bind:value={form.materialType} />
           </div>
           <div class="form-group">
             <label for="note-year">Target Year</label>
-            <select id="note-year" class="input" bind:value={form.targetYearOfStudy}>
-              <option value="">Select year</option>
-              {#each yearOptions as year}
-                <option value={year}>Year {year}</option>
-              {/each}
-            </select>
+            <CustomSelect id="note-year" options={uploadYearOptions} bind:value={form.targetYearOfStudy} />
           </div>
           <div class="form-group full-width">
             <label for="note-description">Description</label>
@@ -335,8 +330,7 @@
   .toolbar-filters { display:flex; gap:0.75rem; flex-wrap:wrap; }
   .search-input { min-width:0; transition:border-color 0.2s ease, box-shadow 0.2s ease; }
   .search-input:focus { outline:none; border-color:var(--primary, #4F7CDB); box-shadow:0 0 0 3px var(--primary-100, #D4DFFA); }
-  .compact { width: min(100%, 180px); transition:border-color 0.2s ease, box-shadow 0.2s ease; }
-  .compact:focus { outline:none; border-color:var(--primary, #4F7CDB); box-shadow:0 0 0 3px var(--primary-100, #D4DFFA); }
+  .toolbar-filter { width: min(100%, 180px); }
   .table-wrapper { overflow-x:auto; }
   table { width:100%; border-collapse:collapse; }
   th, td { padding:1rem 0.75rem; border-bottom:1px solid var(--border-light, #E2E8F0); text-align:left; vertical-align:top; }
@@ -371,7 +365,7 @@
     .toolbar-filters,
     .form-grid { grid-template-columns:1fr; }
     .toolbar-filters { display:grid; }
-    .compact { width:100%; }
+    .toolbar-filter { width:100%; }
     th:last-child, td:last-child { text-align:left; }
     .table-action-row { justify-content:flex-start; }
   }

@@ -4,6 +4,7 @@
   import { industryMentorNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
   import ConfirmDialog from '../shared/ConfirmDialog.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -16,6 +17,13 @@
   let refreshTimer = null;
   let pendingCancelSession = null;
   let cancelLoading = false;
+
+  const sessionTypeOptions = [
+    { value: 'ONE_TO_ONE', label: 'One To One' },
+    { value: 'ALL_ASSIGNED', label: 'All Connected Students' },
+    { value: 'YEAR', label: 'All Students in One Year' },
+    { value: 'CUSTOM', label: 'Custom Student List' }
+  ];
 
   onMount(() => {
     if (!user) { window.location.href = '/'; return; }
@@ -241,23 +249,17 @@
           </div>
           <div class="form-group">
             <label for="industry-type">Session Type</label>
-            <select id="industry-type" class="input" bind:value={form.sessionType}>
-              <option value="ONE_TO_ONE">One To One</option>
-              <option value="ALL_ASSIGNED">All Connected Students</option>
-              <option value="YEAR">All Students in One Year</option>
-              <option value="CUSTOM">Custom Student List</option>
-            </select>
+            <CustomSelect id="industry-type" options={sessionTypeOptions} bind:value={form.sessionType} />
           </div>
 
           {#if form.sessionType === 'YEAR'}
             <div class="form-group full-width">
               <label for="industry-year">Year</label>
-              <select id="industry-year" class="input" bind:value={form.targetYearOfStudy}>
-                <option value="">Select year</option>
-                {#each yearOptions() as year}
-                  <option value={year}>Year {year}</option>
-                {/each}
-              </select>
+              <CustomSelect
+                id="industry-year"
+                options={[{ value: '', label: 'Select year' }, ...yearOptions().map((year) => ({ value: year, label: `Year ${year}` }))]}
+                bind:value={form.targetYearOfStudy}
+              />
             </div>
           {/if}
 

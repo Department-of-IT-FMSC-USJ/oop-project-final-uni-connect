@@ -3,6 +3,7 @@
   import { api, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
   import { industryMentorNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
 
   let user = getCurrentUser();
   let suggestions = [];
@@ -16,6 +17,13 @@
     description: '',
     suggestedCourse: ''
   };
+
+  const categoryOptions = [
+    { value: 'COURSE_IMPROVEMENT', label: 'Course Improvement' },
+    { value: 'NEW_COURSE', label: 'New Course' },
+    { value: 'SKILL_DEVELOPMENT', label: 'Skill Development' },
+    { value: 'TECHNOLOGY_UPDATE', label: 'Technology Update' }
+  ];
 
   onMount(() => {
     if (!user) { window.location.href = '/'; return; }
@@ -92,12 +100,7 @@
         </div>
         <div class="form-group">
           <label>Category</label>
-          <select class="input" bind:value={form.category} disabled={!submissionOpen}>
-            <option value="COURSE_IMPROVEMENT">Course Improvement</option>
-            <option value="NEW_COURSE">New Course</option>
-            <option value="SKILL_DEVELOPMENT">Skill Development</option>
-            <option value="TECHNOLOGY_UPDATE">Technology Update</option>
-          </select>
+          <CustomSelect options={categoryOptions} bind:value={form.category} disabled={!submissionOpen} />
         </div>
         <div class="form-group">
           <label>Suggested Course</label>

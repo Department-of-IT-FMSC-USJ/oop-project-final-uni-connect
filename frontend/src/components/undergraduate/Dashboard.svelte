@@ -4,6 +4,7 @@
   import { undergraduateNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
   import FeedbackDialog from '../shared/FeedbackDialog.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -36,6 +37,11 @@
     proofData: '',
     category: 'ACTIVITY'
   };
+
+  const proofCategoryOptions = [
+    { value: 'ACTIVITY', label: 'Activity' },
+    { value: 'AWARD', label: 'Award' }
+  ];
 
   function computeLevel(pts) {
     if (pts >= 2000) return { level: 'Level 5: Expert', next: 0 };
@@ -480,10 +486,7 @@
           </div>
           <div class="form-group">
             <label for="proof-category">Category</label>
-            <select id="proof-category" class="input" bind:value={proofForm.category}>
-              <option value="ACTIVITY">Activity</option>
-              <option value="AWARD">Award</option>
-            </select>
+            <CustomSelect id="proof-category" options={proofCategoryOptions} bind:value={proofForm.category} />
           </div>
           <div class="form-group">
             <label for="proof-date">Event Date</label>

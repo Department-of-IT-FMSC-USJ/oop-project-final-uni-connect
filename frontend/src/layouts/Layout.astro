@@ -18,6 +18,14 @@ const { title } = Astro.props;
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   </head>
   <body>
+    <script is:inline>
+      // Apply sidebar state before first render to prevent layout flash
+      (function () {
+        if (localStorage.getItem('ui.sidebarCollapsed') === '1') {
+          document.body.classList.add('sidebar-collapsed');
+        }
+      })();
+    </script>
     <slot />
   </body>
 </html>
@@ -69,12 +77,14 @@ const { title } = Astro.props;
     --border-medium: #CBD5E1;
 
     /* Dimensions */
-    --sidebar-width: 260px;
-    --sidebar-collapsed-width: 72px;
-    --header-height: 68px;
-    --radius: 12px;
-    --radius-sm: 8px;
-    --radius-lg: 16px;
+    --sidebar-width: 240px;
+    --sidebar-collapsed-width: 64px;
+    --header-height: 56px;
+    --site-max-width: 1200px;
+    --content-max-width: 1000px;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --radius-lg: 14px;
 
     /* Shadows */
     --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
@@ -160,14 +170,14 @@ const { title } = Astro.props;
     color: var(--text-main);
   }
 
-  h1 { font-size: 1.75rem; line-height: 1.3; }
-  h2 { font-size: 1.4rem; line-height: 1.35; font-weight: 600; }
-  h3 { font-size: 1.15rem; line-height: 1.4; font-weight: 600; }
-  h4 { font-size: 0.95rem; line-height: 1.5; font-weight: 500; }
+  h1 { font-size: 1.5rem; line-height: 1.3; }
+  h2 { font-size: 1.2rem; line-height: 1.35; font-weight: 600; }
+  h3 { font-size: 1.0rem; line-height: 1.4; font-weight: 600; }
+  h4 { font-size: 0.875rem; line-height: 1.5; font-weight: 500; }
 
   p, li, td, th, label, span, button {
     font-family: var(--font-ui);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   a {
@@ -178,7 +188,7 @@ const { title } = Astro.props;
 
   a:hover {
     color: var(--primary-dark);
-    text-decoration: underline;
+    text-decoration: none;
   }
 
   button {
@@ -190,7 +200,7 @@ const { title } = Astro.props;
 
   input, select, textarea {
     font-family: inherit;
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
 
   /* Buttons */
@@ -198,10 +208,10 @@ const { title } = Astro.props;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 0.5rem;
-    padding: 0.55rem 1.1rem;
+    gap: 0.4rem;
+    padding: 0.45rem 0.9rem;
     border-radius: var(--radius-sm);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
     border: 1px solid transparent;
     background: transparent;
@@ -305,7 +315,7 @@ const { title } = Astro.props;
     border-radius: var(--radius);
     border: 1px solid var(--border-light);
     box-shadow: var(--shadow-sm);
-    padding: 1.75rem;
+    padding: 1.5rem;
     transition: all var(--transition-smooth);
   }
 
@@ -316,11 +326,11 @@ const { title } = Astro.props;
   /* Inputs */
   .input {
     width: 100%;
-    padding: 0.6rem 0.9rem;
+    padding: 0.5rem 0.75rem;
     border: 1.5px solid var(--border-light);
     border-radius: var(--radius-sm);
     background: var(--bg-main);
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
     transition: all var(--transition-fast);
     color: var(--text-main);
   }
@@ -337,30 +347,73 @@ const { title } = Astro.props;
   }
 
   textarea.input {
-    min-height: 7rem;
+    min-height: 6rem;
     resize: vertical;
   }
 
+  /* Custom Select / Dropdown Styling */
   select,
   select.input,
   select.filter-select {
     appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--bg-main);
     background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"),
-      linear-gradient(180deg, rgba(255,255,255,0.95), rgba(248,250,252,0.95));
-    background-repeat: no-repeat, no-repeat;
-    background-position: right 0.95rem center, center;
-    background-size: 0.8rem, 100%;
-    padding-right: 2.5rem;
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.65rem center;
+    background-size: 0.75rem;
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border: 1.5px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    color: var(--text-main);
+    font-size: 0.8125rem;
+    font-family: var(--font-ui);
+    font-weight: 400;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    outline: none;
+  }
+
+  select:hover,
+  select.input:hover,
+  select.filter-select:hover {
+    border-color: var(--border-medium);
+  }
+
+  select:focus,
+  select.input:focus,
+  select.filter-select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(79, 124, 219, 0.12);
+  }
+
+  /* Filter-style select (compact) */
+  .filter-select {
+    padding: 0.4rem 1.8rem 0.4rem 0.6rem;
+    font-size: 0.75rem;
+    border-radius: var(--radius-sm);
+    border: 1.5px solid var(--border-light);
+    background-color: var(--bg-main);
+    min-width: 0;
+  }
+
+  select option {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8125rem;
+    background: var(--bg-main);
+    color: var(--text-main);
   }
 
   /* Badges */
   .badge {
     display: inline-flex;
     align-items: center;
-    padding: 0.25rem 0.7rem;
+    padding: 0.2rem 0.6rem;
     border-radius: 20px;
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     font-weight: 500;
     letter-spacing: 0.03em;
     text-transform: uppercase;
@@ -393,8 +446,8 @@ const { title } = Astro.props;
     background: var(--bg-main);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
-    padding: 2rem;
-    max-width: 500px;
+    padding: 1.75rem;
+    max-width: 480px;
     width: 90%;
     box-shadow: var(--shadow-lg);
     animation: slideIn 0.3s ease-out;
@@ -405,10 +458,10 @@ const { title } = Astro.props;
     background: var(--bg-main);
     border-radius: var(--radius);
     border: 1px solid var(--border-light);
-    padding: 1.25rem 1.5rem;
+    padding: 1rem 1.25rem;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
     box-shadow: var(--shadow-sm);
     transition: all var(--transition-fast);
   }
@@ -419,8 +472,8 @@ const { title } = Astro.props;
   }
 
   .stat-icon {
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-sm);
     display: flex;
     align-items: center;

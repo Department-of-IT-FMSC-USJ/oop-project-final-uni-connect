@@ -3,6 +3,7 @@
   import { api, getCurrentUser, getRoleDashboardPath } from '../../lib/api.js';
   import { industryMentorNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
+  import CustomSelect from '../shared/CustomSelect.svelte';
 
   let user = getCurrentUser();
   let sessions = [];
@@ -28,6 +29,28 @@
   let suggestionError = '';
   let suggestionLoading = false;
   let submissionOpen = false;
+
+  const sessionFilterOptions = [
+    { value: 'all', label: 'All Types' },
+    { value: 'WORKSHOP', label: 'Workshop' },
+    { value: 'TECH_TALK', label: 'Tech Talk' },
+    { value: 'MOCK_INTERVIEW', label: 'Mock Interview' },
+    { value: 'MENTORING', label: 'Mentoring' }
+  ];
+
+  const sessionTypeOptions = [
+    { value: 'WORKSHOP', label: 'Workshop' },
+    { value: 'TECH_TALK', label: 'Tech Talk' },
+    { value: 'MOCK_INTERVIEW', label: 'Mock Interview' },
+    { value: 'MENTORING', label: 'Mentoring' }
+  ];
+
+  const suggestionCategoryOptions = [
+    { value: 'CURRICULUM_UPDATE', label: 'Curriculum Update' },
+    { value: 'NEW_COURSE', label: 'New Course' },
+    { value: 'SKILL_GAP', label: 'Skill Gap' },
+    { value: 'INDUSTRY_TREND', label: 'Industry Trend' }
+  ];
 
   let filteredSessions = [];
   $: {
@@ -124,13 +147,9 @@
     <div class="sessions-section">
       <div class="sessions-header">
         <h2 class="section-title">Upcoming Sessions</h2>
-        <select class="filter-select" bind:value={filterType}>
-          <option value="all">All Types</option>
-          <option value="WORKSHOP">Workshop</option>
-          <option value="TECH_TALK">Tech Talk</option>
-          <option value="MOCK_INTERVIEW">Mock Interview</option>
-          <option value="MENTORING">Mentoring</option>
-        </select>
+        <div class="filter-select">
+          <CustomSelect options={sessionFilterOptions} bind:value={filterType} compact />
+        </div>
       </div>
 
       {#if filteredSessions.length === 0}
@@ -209,12 +228,7 @@
           </div>
           <div class="form-group">
             <label>Type</label>
-            <select class="input" bind:value={sessionType}>
-              <option value="WORKSHOP">Workshop</option>
-              <option value="TECH_TALK">Tech Talk</option>
-              <option value="MOCK_INTERVIEW">Mock Interview</option>
-              <option value="MENTORING">Mentoring</option>
-            </select>
+            <CustomSelect options={sessionTypeOptions} bind:value={sessionType} />
           </div>
           <div class="form-group">
             <label>Description</label>
@@ -245,12 +259,7 @@
           </div>
           <div class="form-group">
             <label>Category</label>
-            <select class="input" bind:value={suggestionCategory}>
-              <option value="CURRICULUM_UPDATE">Curriculum Update</option>
-              <option value="NEW_COURSE">New Course</option>
-              <option value="SKILL_GAP">Skill Gap</option>
-              <option value="INDUSTRY_TREND">Industry Trend</option>
-            </select>
+            <CustomSelect options={suggestionCategoryOptions} bind:value={suggestionCategory} />
           </div>
           <div class="form-group">
             <label>Description</label>
@@ -270,7 +279,7 @@
 
 <style>
   .link-btn { background: none; border: none; padding: 0; color: var(--primary, #4F7CDB); font-weight: 600; cursor: pointer; text-decoration: none; }
-  .link-btn:hover { text-decoration: underline; color: var(--primary-light, #6B93E4); }
+  .link-btn:hover { text-decoration: none; color: var(--primary-light, #6B93E4); }
   .actions-row {
     display: flex;
     gap: 1rem;
@@ -297,7 +306,7 @@
   }
 
   .filter-select {
-    padding: 0.375rem 0.75rem;
+    width: 11rem;
     border: 1px solid var(--border-medium, #CBD5E1);
     border-radius: var(--radius-sm, 8px);
     font-size: 0.8125rem;

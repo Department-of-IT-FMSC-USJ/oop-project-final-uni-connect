@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api, getCurrentUser, getRoleDashboardPath, invalidateApiCache } from '../../lib/api.js';
   import DashboardLayout from './DashboardLayout.svelte';
+  import CustomSelect from './CustomSelect.svelte';
 
   export let navItems = [];
   export let activeItem = 'profile';
@@ -34,6 +35,13 @@
     expertiseTags: '',
     company: ''
   };
+
+  const yearOfStudyOptions = [
+    { value: '1', label: '1st Year' },
+    { value: '2', label: '2nd Year' },
+    { value: '3', label: '3rd Year' },
+    { value: '4', label: '4th Year' }
+  ];
 
   onMount(() => {
     mounted = true;
@@ -202,12 +210,7 @@
               {#if profile.role === 'UNDERGRADUATE'}
                 <div class="form-group">
                   <label>Year of Study</label>
-                  <select class="input" bind:value={editForm.yearOfStudy}>
-                    <option value="1">1st Year</option>
-                    <option value="2">2nd Year</option>
-                    <option value="3">3rd Year</option>
-                    <option value="4">4th Year</option>
-                  </select>
+                  <CustomSelect options={yearOfStudyOptions} bind:value={editForm.yearOfStudy} />
                 </div>
                 <div class="form-group">
                   <label>Registration Number</label>
@@ -325,7 +328,7 @@
 
 <style>
   .email-link { color: var(--primary); text-decoration: none; }
-  .email-link:hover { text-decoration: underline; color: var(--primary-dark); }
+  .email-link:hover { text-decoration: none; color: var(--primary-dark); }
   .profile-container {
     max-width: 800px;
   }

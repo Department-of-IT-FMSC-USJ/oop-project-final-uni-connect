@@ -4,6 +4,7 @@
   import { hodNavItems } from '../../lib/navigation.js';
   import { api, getCurrentUser } from '../../lib/api.js';
   import { addToast } from '../../lib/toast.js';
+  import CustomSelect from '../shared/CustomSelect.svelte';
 
   let user = null;
   let loading = false;
@@ -14,6 +15,12 @@
   let mentorType = 'ALL';
   let preset = '';
   let expandedSessions = {};
+
+  const mentorTypeOptions = [
+    { value: 'ALL', label: 'All Mentors' },
+    { value: 'ACADEMIC', label: 'Academic Only' },
+    { value: 'INDUSTRY', label: 'Industry Only' }
+  ];
 
   onMount(() => {
     user = getCurrentUser();
@@ -119,11 +126,7 @@
           </div>
           <div class="filter-group">
             <label>Mentor Type</label>
-            <select class="input" bind:value={mentorType}>
-              <option value="ALL">All Mentors</option>
-              <option value="ACADEMIC">Academic Only</option>
-              <option value="INDUSTRY">Industry Only</option>
-            </select>
+            <CustomSelect options={mentorTypeOptions} bind:value={mentorType} />
           </div>
           <button class="btn btn-primary generate-btn" on:click={generateReport} disabled={loading}>
             {#if loading}Generating...{:else}Generate Report{/if}

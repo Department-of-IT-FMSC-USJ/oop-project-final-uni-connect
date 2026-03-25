@@ -126,7 +126,7 @@
     text-decoration: none;
   }
   .link-btn:hover {
-    text-decoration: underline;
+    text-decoration: none;
     color: var(--primary-dark, #3A62B5);
   }
 
@@ -165,7 +165,7 @@
   }
   .mini-link:hover {
     color: var(--accent-light, #3DC0B3);
-    text-decoration: underline;
+    text-decoration: none;
   }
 
   /* -- Empty state -- */
