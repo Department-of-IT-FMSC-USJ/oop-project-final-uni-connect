@@ -246,25 +246,20 @@
     gap: 0.75rem;
     margin-bottom: 0.875rem;
     padding: 0.5rem 0.75rem;
-    border-left: 3px solid var(--primary, #4F7CDB);
     border-radius: var(--radius-sm, 8px);
     background: var(--bg-alt, #F8FAFC);
   }
   /* Year 1 = primary */
   .stat-row:nth-of-type(1) {
-    border-left-color: var(--primary, #4F7CDB);
   }
   /* Year 2 = accent */
   .stat-row:nth-of-type(2) {
-    border-left-color: var(--accent, #2BA89C);
   }
   /* Year 3 = warning */
   .stat-row:nth-of-type(3) {
-    border-left-color: var(--warning, #F59E0B);
   }
   /* Year 4 = success */
   .stat-row:nth-of-type(4) {
-    border-left-color: var(--success, #22C55E);
   }
   .stat-label {
     width: 70px;

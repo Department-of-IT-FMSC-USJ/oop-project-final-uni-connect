@@ -164,12 +164,18 @@
         <p class="empty-state">No messages yet. Start the conversation.</p>
       {:else}
         {#each messages as message}
-          <div class="message-bubble" class:is-own={message.senderId === currentUser?.id}>
-            <div class="message-meta">
-              <strong>{message.senderId === currentUser?.id ? 'You' : message.senderName}</strong>
-              <span>{formatDate(message.createdAt)}</span>
+          {@const isOwn = String(message.senderId) === String(currentUser?.id || currentUser?.userId)}
+          <div class="message-row" class:is-own={isOwn}>
+            {#if !isOwn}
+              <div class="msg-avatar">{contact.fullName?.charAt(0) || '?'}</div>
+            {/if}
+            <div class="message-bubble" class:is-own={isOwn}>
+              {#if !isOwn}
+                <span class="msg-sender">{message.senderName || contact.fullName}</span>
+              {/if}
+              <p>{message.content}</p>
+              <span class="msg-time">{formatDate(message.createdAt)}</span>
             </div>
-            <p>{message.content}</p>
           </div>
         {/each}
       {/if}
@@ -274,39 +280,84 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
-    padding: 1rem 1.5rem;
+    gap: 0.5rem;
+    padding: 1rem 1.25rem;
+    background: var(--bg-alt);
+  }
+
+  .message-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 0.5rem;
+    max-width: 78%;
+  }
+
+  .message-row.is-own {
+    align-self: flex-end;
+    flex-direction: row-reverse;
+  }
+
+  .msg-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    align-self: flex-end;
   }
 
   .message-bubble {
-    max-width: 75%;
-    padding: 0.75rem 1rem;
-    border-radius: var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;
-    background: var(--bg-secondary);
-    align-self: flex-start;
+    padding: 0.6rem 0.9rem;
+    border-radius: 16px 16px 16px 4px;
+    background: var(--bg-main);
+    border: 1px solid var(--border-light);
+    max-width: 100%;
+    word-break: break-word;
   }
 
   .message-bubble.is-own {
-    align-self: flex-end;
-    background: var(--primary-50);
-    border-radius: var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);
+    background: var(--primary);
+    border-color: transparent;
+    border-radius: 16px 16px 4px 16px;
   }
 
-  .message-meta {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.25rem;
-    font-size: 0.7rem;
-    color: var(--text-muted);
+  .msg-sender {
+    display: block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.2rem;
+    letter-spacing: 0.03em;
   }
 
   .message-bubble p {
     white-space: pre-wrap;
     color: var(--text-main);
     margin: 0;
-    font-size: 0.9rem;
+    font-size: 0.875rem;
     line-height: 1.5;
+  }
+
+  .message-bubble.is-own p {
+    color: #fff;
+  }
+
+  .msg-time {
+    display: block;
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+    text-align: right;
+  }
+
+  .message-bubble.is-own .msg-time {
+    color: rgba(255, 255, 255, 0.7);
   }
 
   .composer {

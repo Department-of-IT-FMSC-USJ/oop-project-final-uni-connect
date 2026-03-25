@@ -42,6 +42,10 @@
   let submissionOpen = false;
   let pendingSuggestionCount = 0;
   let departmentSessions = [];
+  let evidenceSearchQuery = '';
+  let sessionSearchQuery = '';
+  let selectedStudentProfile = null;
+  let profileLoading = false;
 
   function setProofCollection(nextProofs) {
     proofs = nextProofs;
@@ -234,6 +238,42 @@
       const rightDate = right?.createdAt ? new Date(right.createdAt).getTime() : 0;
       return rightDate - leftDate;
     });
+  }
+
+  $: filteredEvidenceProofs = [...proofs]
+    .sort((left, right) => {
+      const leftPending = !left?.pointStatus || left.pointStatus === 'PENDING';
+      const rightPending = !right?.pointStatus || right.pointStatus === 'PENDING';
+      if (leftPending !== rightPending) return leftPending ? -1 : 1;
+      const leftDate = left?.createdAt ? new Date(left.createdAt).getTime() : 0;
+      const rightDate = right?.createdAt ? new Date(right.createdAt).getTime() : 0;
+      return rightDate - leftDate;
+    })
+    .filter((p) =>
+      !evidenceSearchQuery.trim() ||
+      (p.studentName || '').toLowerCase().includes(evidenceSearchQuery.trim().toLowerCase())
+    );
+
+  $: filteredSessions = sessionSearchQuery.trim()
+    ? departmentSessions.filter((s) =>
+        (s.sessionTitle || '').toLowerCase().includes(sessionSearchQuery.trim().toLowerCase()) ||
+        (s.mentorName || '').toLowerCase().includes(sessionSearchQuery.trim().toLowerCase())
+      )
+    : departmentSessions;
+
+  async function openStudentProfile(studentId, studentName) {
+    profileLoading = true;
+    selectedStudentProfile = { id: studentId, fullName: studentName, cumulativePoints: null };
+    try {
+      const res = await api.get(`/users/students/search?query=${encodeURIComponent(studentName || '')}`, { cache: false });
+      const students = res.data || [];
+      const found = students.find((s) => String(s.id) === String(studentId)) || students[0] || null;
+      if (found) selectedStudentProfile = found;
+    } catch (e) {
+      console.error('Failed to load student profile', e);
+    } finally {
+      profileLoading = false;
+    }
   }
 
   async function searchStudents() {
@@ -561,11 +601,21 @@
 
   <!-- Scheduled Sessions -->
   <div class="card" style="margin-bottom: 1.5rem;">
-    <h2 class="card-title">Scheduled Sessions</h2>
+    <div class="card-header">
+      <h2 class="card-title">Scheduled Sessions</h2>
+      <div class="section-search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input class="section-search-input" placeholder="Search by topic or mentor..." bind:value={sessionSearchQuery} />
+      </div>
+    </div>
     {#if departmentSessions.length === 0}
       <p class="empty-state">No scheduled sessions from department mentors.</p>
+    {:else if filteredSessions.length === 0}
+      <p class="empty-state">No sessions match your search.</p>
     {:else}
-      <div class="table-wrapper">
+      <div class="table-scroll-wrapper">
         <table>
           <thead>
             <tr>
@@ -577,7 +627,7 @@
             </tr>
           </thead>
           <tbody>
-            {#each departmentSessions.slice(0, 10) as session}
+            {#each filteredSessions as session}
               <tr>
                 <td><strong>{session.sessionTitle}</strong></td>
                 <td>{session.mentorName}</td>
@@ -601,49 +651,66 @@
           <span class="pending-pill">{pendingProofCount} pending</span>
         {/if}
       </h2>
+      <div class="section-search-box">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input class="section-search-input" placeholder="Search by student name..." bind:value={evidenceSearchQuery} />
+      </div>
     </div>
     {#if dashboardLoading && proofs.length === 0}
       <p class="empty-state">Loading evidence submissions...</p>
     {:else if proofs.length === 0}
       <p class="empty-state">No evidence submissions yet.</p>
+    {:else if filteredEvidenceProofs.length === 0}
+      <p class="empty-state">No submissions match your search.</p>
     {:else}
       <div class="evidence-review-list">
-        {#each getEvidenceProofs() as proof}
+        {#each filteredEvidenceProofs as proof}
+          {@const isPunishment = proof.pointStatus === 'APPROVED' && Number(proof.latestPoints) < 0}
+          {@const isPending = !proof.pointStatus || proof.pointStatus === 'PENDING'}
           <article class="evidence-review-card">
             <div class="evidence-review-main">
               <div class="evidence-review-head">
-                <div>
-                  <p class="evidence-student">{proof.studentName || `Student #${proof.studentId}`}</p>
-                  <h3>{proof.title}</h3>
+                <div class="evidence-title-block">
+                  <button
+                    class="evidence-student-btn"
+                    on:click={() => openStudentProfile(proof.studentId, proof.studentName)}
+                    title="View student profile"
+                  >{proof.studentName || `Student #${proof.studentId}`}</button>
+                  <h3 class="evidence-title">{proof.title}</h3>
                 </div>
                 <span
-                  class="badge"
-                  class:badge-warning={!proof.pointStatus || proof.pointStatus === 'PENDING'}
-                  class:badge-success={proof.pointStatus === 'APPROVED'}
+                  class="badge evidence-status-badge"
+                  class:badge-warning={isPending}
+                  class:badge-success={proof.pointStatus === 'APPROVED' && !isPunishment}
                   class:badge-danger={proof.pointStatus === 'REJECTED'}
+                  class:badge-punishment={isPunishment}
                 >
-                  {formatProofStatus(proof.pointStatus)}
+                  {isPunishment ? 'Punishment' : (isPending ? 'Pending' : formatProofStatus(proof.pointStatus))}
                 </span>
               </div>
               <p class="evidence-description">{proof.description || 'No extra note provided with this evidence submission.'}</p>
-              <div class="evidence-meta">
-                <span class="table-chip">{formatProofCategory(proof.pointCategory)}</span>
-                <span class="table-chip table-chip-muted">{proof.eventDate || 'No date'}</span>
-                {#if proof.latestPoints}
-                  <span class="table-chip table-chip-muted">{proof.latestPoints} pts</span>
-                {/if}
+              <div class="evidence-footer">
+                <div class="evidence-meta">
+                  <span class="table-chip">{formatProofCategory(proof.pointCategory)}</span>
+                  <span class="table-chip table-chip-muted">{proof.eventDate || 'No date'}</span>
+                  {#if proof.latestPoints}
+                    <span class="table-chip" class:table-chip-negative={Number(proof.latestPoints) < 0}>{proof.latestPoints} pts</span>
+                  {/if}
+                </div>
+                <div class="evidence-actions-inline">
+                  {#if proof.proofData}
+                    <a class="btn btn-outline btn-sm" href={proof.proofData} target="_blank" rel="noreferrer">View File</a>
+                  {/if}
+                  {#if isPending}
+                    <button class="btn btn-success btn-sm" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
+                    <button class="btn btn-danger btn-sm" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
+                  {:else}
+                    <span class="reviewed-label">Reviewed</span>
+                  {/if}
+                </div>
               </div>
-            </div>
-            <div class="evidence-review-actions">
-              {#if proof.proofData}
-                <a class="btn btn-outline btn-sm" href={proof.proofData} target="_blank" rel="noreferrer">View Evidence</a>
-              {/if}
-              {#if !proof.pointStatus || proof.pointStatus === 'PENDING'}
-                <button class="btn btn-success btn-sm" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
-                <button class="btn btn-danger btn-sm" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
-              {:else}
-                <span class="reviewed-label">Already reviewed</span>
-              {/if}
             </div>
           </article>
         {/each}
@@ -689,14 +756,14 @@
       {:else if topStudents.length === 0}
         <p class="empty-state">No student data available</p>
       {:else}
-        <div class="table-wrapper">
+        <div class="table-scroll-wrapper">
           <table>
             <thead><tr><th>Rank</th><th>Student Name</th><th>Points</th><th>Year</th></tr></thead>
             <tbody>
               {#each topStudents as student, i}
                 <tr>
                   <td><strong>Rank {i + 1}</strong></td>
-                  <td><button class="link-btn" on:click={() => openAwardPoints(student)}>{student.fullName}</button></td>
+                  <td><button class="link-btn" on:click={() => openStudentProfile(student.id, student.fullName)}>{student.fullName}</button></td>
                   <td><strong>{student.cumulativePoints || 0}</strong></td>
                   <td>Year {student.yearOfStudy || '-'}</td>
                 </tr>
@@ -803,6 +870,54 @@
             {pointLoading ? 'Saving...' : (Number(pointForm.points) < 0 ? 'Deduct Points' : 'Award Points')}
           </button>
         </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if selectedStudentProfile}
+    <div class="modal-overlay" on:click|self={() => selectedStudentProfile = null}>
+      <div class="modal-content student-profile-modal">
+        <div class="modal-header">
+          <div>
+            <p class="eyebrow">Student Profile</p>
+            <h2>{selectedStudentProfile.fullName || 'Student'}</h2>
+          </div>
+          <button class="close-btn" on:click={() => selectedStudentProfile = null}>✕</button>
+        </div>
+        {#if profileLoading}
+          <p class="empty-state" style="padding: 2rem 0;">Loading student data...</p>
+        {:else}
+          <div class="proof-info-card">
+            <div class="proof-info-row">
+              <span class="label">Full Name</span>
+              <span class="value">{selectedStudentProfile.fullName || '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Reg. Number</span>
+              <span class="value">{selectedStudentProfile.registrationNumber || '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Email</span>
+              <span class="value">{selectedStudentProfile.email || '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Year of Study</span>
+              <span class="value">{selectedStudentProfile.yearOfStudy ? `Year ${selectedStudentProfile.yearOfStudy}` : '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Department</span>
+              <span class="value">{selectedStudentProfile.department || '-'}</span>
+            </div>
+            <div class="proof-info-row">
+              <span class="label">Cumulative Points</span>
+              <span class="value profile-points">{selectedStudentProfile.cumulativePoints ?? '-'}</span>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-outline" on:click={() => selectedStudentProfile = null}>Close</button>
+            <button class="btn btn-primary" on:click={() => { openAwardPoints(selectedStudentProfile); selectedStudentProfile = null; }}>Award / Deduct Points</button>
+          </div>
+        {/if}
       </div>
     </div>
   {/if}
@@ -958,6 +1073,33 @@
     vertical-align: middle;
   }
 
+  .section-search-box {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    background: var(--bg-main);
+    border: 1px solid var(--border-medium);
+    border-radius: var(--radius);
+    padding: 0.4rem 0.65rem;
+    min-width: 200px;
+    color: var(--text-muted);
+  }
+  .section-search-input {
+    border: none;
+    outline: none;
+    font-size: 0.8rem;
+    background: transparent;
+    width: 100%;
+    color: var(--text-main);
+  }
+  .section-search-input::placeholder { color: var(--text-muted); }
+
+  .table-scroll-wrapper {
+    overflow-x: auto;
+    overflow-y: auto;
+    max-height: 18rem;
+  }
+
   .curriculum-btn {
     position: relative;
     display: inline-flex;
@@ -1088,22 +1230,26 @@
   .proof-review-content { margin-bottom: 1.5rem; }
   .evidence-review-list {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
+    max-height: 32rem;
+    overflow-y: auto;
+    padding-right: 0.25rem;
   }
 
   .evidence-review-card {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 1rem;
-    padding: 1.25rem;
+    padding: 1.1rem 1.25rem;
     border: 1px solid var(--border-light);
     border-radius: var(--radius);
     background: transparent;
+    transition: border-color 0.15s ease;
+  }
+  .evidence-review-card:hover {
+    border-color: var(--border-medium);
   }
 
   .evidence-review-main {
     display: grid;
-    gap: 0.8rem;
+    gap: 0.6rem;
     min-width: 0;
   }
 
@@ -1114,18 +1260,73 @@
     align-items: flex-start;
   }
 
-  .evidence-student {
-    font-size: 0.78rem;
+  .evidence-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .evidence-student-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 0.3rem;
+    color: var(--primary);
+    cursor: pointer;
+    text-align: left;
+    opacity: 0.85;
+    transition: opacity 0.15s ease;
+  }
+  .evidence-student-btn:hover {
+    opacity: 1;
+    text-decoration: underline;
   }
 
-  .evidence-review-head h3 {
-    font-size: 1.05rem;
+  .evidence-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
     margin: 0;
+    line-height: 1.35;
+  }
+
+  .evidence-status-badge {
+    flex-shrink: 0;
+    align-self: flex-start;
+  }
+
+  .badge-punishment {
+    background: rgba(245, 158, 11, 0.12);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  }
+
+  .evidence-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.25rem;
+  }
+
+  .evidence-actions-inline {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .table-chip-negative {
+    background: var(--danger-light);
+    color: var(--danger);
+    border-color: transparent;
   }
 
   .evidence-description {
@@ -1140,13 +1341,13 @@
     gap: 0.55rem;
   }
 
-  .evidence-review-actions {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: stretch;
-    gap: 0.55rem;
-    min-width: 9rem;
+  .student-profile-modal { max-width: 520px; }
+  .profile-points {
+    font-family: var(--font-heading);
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--primary);
   }
 
   .reviewed-label {
@@ -1266,15 +1467,9 @@
       display: grid;
     }
 
-    .evidence-review-card {
-      grid-template-columns: 1fr;
-    }
-
-    .evidence-review-actions {
-      min-width: 0;
-      flex-direction: row;
-      flex-wrap: wrap;
-      justify-content: flex-start;
+    .evidence-footer {
+      flex-direction: column;
+      align-items: flex-start;
     }
 
     .form-row {

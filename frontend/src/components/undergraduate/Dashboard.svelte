@@ -382,7 +382,7 @@
       {#if myProofs.length === 0}
         <p class="empty-state">No evidence submitted yet.</p>
       {:else}
-        <div class="table-wrapper">
+        <div class="table-wrapper evidence-table-scroll">
           <table>
             <thead>
               <tr>
@@ -393,7 +393,8 @@
               </tr>
             </thead>
             <tbody>
-              {#each myProofs.slice(0, 5) as proof}
+              {#each myProofs as proof}
+                {@const isPunishment = proof.pointStatus === 'APPROVED' && Number(proof.latestPoints) < 0}
                 <tr>
                   <td>
                     {#if proof.proofData}
@@ -403,7 +404,17 @@
                     {/if}
                   </td>
                   <td>{proof.pointCategory || '-'}</td>
-                  <td>{proof.pointStatus || 'PENDING'}</td>
+                  <td>
+                    <span
+                      class="status-chip"
+                      class:status-pending={!proof.pointStatus || proof.pointStatus === 'PENDING'}
+                      class:status-approved={proof.pointStatus === 'APPROVED' && !isPunishment}
+                      class:status-rejected={proof.pointStatus === 'REJECTED'}
+                      class:status-punishment={isPunishment}
+                    >
+                      {isPunishment ? 'Punishment' : (proof.pointStatus || 'PENDING')}
+                    </span>
+                  </td>
                   <td>{proof.eventDate || '-'}</td>
                 </tr>
               {/each}
@@ -574,11 +585,25 @@
   .recent-note-item { display:flex; justify-content:space-between; gap:0.75rem; padding:0.7rem 0.85rem; background:var(--bg-alt, #F8FAFC); border-radius:var(--radius-sm, 8px); color:var(--text-secondary, #475569); border:1px solid var(--border-light, #E2E8F0); }
   .card-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
   .table-wrapper { overflow-x:auto; }
+  .evidence-table-scroll { max-height: 18rem; overflow-y: auto; }
   table { width:100%; border-collapse:collapse; }
   th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--border-light, #E2E8F0); text-align:left; }
-  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted, #94A3B8); background:var(--bg-secondary, #F1F5F9); }
+  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted, #94A3B8); background:var(--bg-secondary, #F1F5F9); position: sticky; top: 0; z-index: 1; }
   tbody tr { transition:background 0.18s ease; }
   tbody tr:hover { background:var(--primary-50, #EEF2FB); }
+  .status-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .status-pending { background: rgba(245,158,11,0.12); color: #92400e; }
+  .status-approved { background: rgba(16,185,129,0.12); color: #065f46; }
+  .status-rejected { background: rgba(239,68,68,0.12); color: #991b1b; }
+  .status-punishment { background: rgba(245,158,11,0.15); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
   .mentors-section { display:grid; gap:1rem; }
   .mentor-grid { display:grid; gap:1rem; }
   .mentor-card { display:grid; gap:1rem; border:1px solid var(--border-light, #E2E8F0); border-radius:var(--radius, 12px); }

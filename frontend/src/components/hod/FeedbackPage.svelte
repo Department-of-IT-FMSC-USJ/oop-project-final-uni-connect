@@ -132,37 +132,36 @@
       {:else if visibleFeedbacks().length === 0}
         <p class="empty-state">No feedback records found.</p>
       {:else}
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Mentor</th>
-                <th>Session</th>
-                <th>Rating</th>
-                <th>Submitted</th>
-                <th>Preview</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each visibleFeedbacks() as entry}
-                <tr>
-                  <td><strong>{entry.mentorName || 'Unknown'}</strong></td>
-                  <td>Session #{entry.sessionId || '-'}</td>
-                  <td>
-                    <span class="stars">{renderStars(entry.rating || 0)}</span>
-                  </td>
-                  <td>{formatDate(entry.submittedDate)}</td>
-                  <td class="preview-cell">{entry.feedbackComment || 'No comment provided.'}</td>
-                  <td>
-                    <button class="btn btn-outline btn-sm" on:click={() => selectedFeedback = entry}>
-                      View Feedback
-                    </button>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+        <div class="feedback-list">
+          {#each visibleFeedbacks() as entry}
+            <article class="feedback-card">
+              <div class="feedback-head">
+                <div class="feedback-identity">
+                  <div class="feedback-avatar">{(entry.mentorName || 'M').charAt(0).toUpperCase()}</div>
+                  <div class="feedback-title-block">
+                    <button
+                      class="feedback-name-btn"
+                      on:click={() => selectedFeedback = entry}
+                      title="View full feedback"
+                    >{entry.mentorName || 'Unknown Mentor'}</button>
+                    <span class="feedback-sub">Session #{entry.sessionId || '-'}</span>
+                  </div>
+                </div>
+                <span class="stars">{renderStars(entry.rating || 0)}</span>
+              </div>
+              <div class="feedback-footer">
+                <div class="feedback-meta">
+                  <span class="meta-chip">{formatDate(entry.submittedDate)}</span>
+                  {#if entry.feedbackComment}
+                    <span class="meta-chip meta-chip-muted feedback-preview">{entry.feedbackComment}</span>
+                  {/if}
+                </div>
+                <div class="feedback-actions">
+                  <button class="btn btn-outline btn-sm" on:click={() => selectedFeedback = entry}>View Feedback</button>
+                </div>
+              </div>
+            </article>
+          {/each}
         </div>
       {/if}
     </section>
@@ -308,36 +307,128 @@
     width: 140px;
   }
 
-  .table-wrapper {
-    overflow-x: auto;
+  .feedback-list {
+    display: grid;
+    gap: 0.75rem;
   }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
+  .feedback-card {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+    transition: border-color 0.15s ease;
   }
 
-  th, td {
-    padding: 0.95rem 0.8rem;
+  .feedback-card:hover {
+    border-color: var(--border-medium);
+  }
+
+  .feedback-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .feedback-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .feedback-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .feedback-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .feedback-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
     text-align: left;
-    border-bottom: 1px solid var(--border-light);
-    vertical-align: top;
+    line-height: 1.3;
+    transition: color 0.15s ease;
   }
 
-  th {
-    font-size: 0.76rem;
+  .feedback-name-btn:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .feedback-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
     color: var(--text-muted);
-    background: var(--bg-secondary);
   }
 
-  .preview-cell {
-    max-width: 360px;
-    color: var(--text-secondary);
-    white-space: nowrap;
+  .feedback-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.6rem;
+  }
+
+  .feedback-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    min-width: 0;
+    flex: 1;
+  }
+
+  .feedback-preview {
+    max-width: 340px;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .meta-chip-muted {
+    background: var(--bg-main);
+  }
+
+  .feedback-actions {
+    flex-shrink: 0;
   }
 
   .stars {
@@ -443,6 +534,11 @@
 
     .detail-grid {
       grid-template-columns: 1fr;
+    }
+
+    .feedback-footer {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>

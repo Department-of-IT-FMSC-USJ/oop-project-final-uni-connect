@@ -180,56 +180,51 @@
     {:else if suggestions.length === 0}
       <p class="empty-state">No curriculum suggestions submitted yet.</p>
     {:else}
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Mentor</th>
-              <th>Category</th>
-              <th>Suggested Course</th>
-              <th>Submitted</th>
-              <th>Status</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each suggestions as item}
-              <tr>
-                <td>
-                  <strong>{item.suggestionTitle}</strong>
-                  <div class="muted">{item.description || 'No description.'}</div>
-                </td>
-                <td>{mentorNames[item.mentorId] || `Mentor #${item.mentorId}`}</td>
-                <td>{item.category || '-'}</td>
-                <td>{item.suggestedCourse || '-'}</td>
-                <td>{formatDate(item.submissionDate)}</td>
-                <td>
-                  <span class="badge {reviewClass(item.reviewStatus)}">{item.reviewStatus || 'PENDING'}</span>
-                </td>
-                <td>
-                  {#if item.reviewStatus === 'REVIEWED'}
-                    <button
-                      class="btn btn-outline btn-sm"
-                      disabled={reviewBusyId === item.suggestionId}
-                      on:click={() => setReviewStatus(item, 'PENDING')}
-                    >
-                      {reviewBusyId === item.suggestionId ? 'Saving...' : 'Mark Pending'}
-                    </button>
-                  {:else}
-                    <button
-                      class="btn btn-success btn-sm"
-                      disabled={reviewBusyId === item.suggestionId}
-                      on:click={() => setReviewStatus(item, 'REVIEWED')}
-                    >
-                      {reviewBusyId === item.suggestionId ? 'Saving...' : 'Mark Reviewed'}
-                    </button>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="suggestion-list">
+        {#each suggestions as item}
+          {@const isBusy = reviewBusyId === item.suggestionId}
+          <article class="suggestion-card">
+            <div class="suggestion-head">
+              <div class="suggestion-identity">
+                <div class="suggestion-avatar">{(mentorNames[item.mentorId] || 'M').charAt(0).toUpperCase()}</div>
+                <div class="suggestion-title-block">
+                  <span class="suggestion-name">{item.suggestionTitle}</span>
+                  <span class="suggestion-sub">{mentorNames[item.mentorId] || `Mentor #${item.mentorId}`}</span>
+                </div>
+              </div>
+              <span class="badge {reviewClass(item.reviewStatus)}">{item.reviewStatus || 'PENDING'}</span>
+            </div>
+            {#if item.description}
+              <p class="suggestion-desc">{item.description}</p>
+            {/if}
+            <div class="suggestion-footer">
+              <div class="suggestion-meta">
+                {#if item.category}
+                  <span class="meta-chip">{item.category}</span>
+                {/if}
+                {#if item.suggestedCourse}
+                  <span class="meta-chip meta-chip-muted">{item.suggestedCourse}</span>
+                {/if}
+                <span class="meta-chip meta-chip-muted">{formatDate(item.submissionDate)}</span>
+              </div>
+              <div class="suggestion-actions">
+                {#if item.reviewStatus === 'REVIEWED'}
+                  <button
+                    class="btn btn-outline btn-sm"
+                    disabled={isBusy}
+                    on:click={() => setReviewStatus(item, 'PENDING')}
+                  >{isBusy ? 'Saving...' : 'Mark Pending'}</button>
+                {:else}
+                  <button
+                    class="btn btn-success btn-sm"
+                    disabled={isBusy}
+                    on:click={() => setReviewStatus(item, 'REVIEWED')}
+                  >{isBusy ? 'Saving...' : 'Mark Reviewed'}</button>
+                {/if}
+              </div>
+            </div>
+          </article>
+        {/each}
       </div>
     {/if}
   </section>
@@ -305,27 +300,117 @@
     color: var(--primary-dark);
     text-align: center;
   }
-  .table-wrapper {
-    overflow-x: auto;
+  .suggestion-list {
+    display: grid;
+    gap: 0.75rem;
   }
-  table {
-    width: 100%;
-    border-collapse: collapse;
+
+  .suggestion-card {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+    transition: border-color 0.15s ease;
   }
-  th,
-  td {
-    padding: 0.9rem 0.75rem;
-    border-bottom: 1px solid var(--border-light);
-    text-align: left;
-    vertical-align: top;
+
+  .suggestion-card:hover {
+    border-color: var(--border-medium);
   }
-  th {
-    font-size: 0.76rem;
+
+  .suggestion-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .suggestion-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .suggestion-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .suggestion-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .suggestion-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.3;
+  }
+
+  .suggestion-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
     color: var(--text-muted);
-    background: var(--bg-secondary);
   }
+
+  .suggestion-desc {
+    margin: 0.6rem 0 0;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .suggestion-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.6rem;
+  }
+
+  .suggestion-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .meta-chip-muted {
+    background: var(--bg-main);
+  }
+
+  .suggestion-actions {
+    flex-shrink: 0;
+  }
+
   .alert {
     padding: 0.8rem 1rem;
     border-radius: var(--radius);
@@ -337,6 +422,11 @@
   }
   @media (max-width: 920px) {
     .hero-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .suggestion-footer {
       flex-direction: column;
       align-items: flex-start;
     }

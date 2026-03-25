@@ -180,52 +180,52 @@
       {:else if filteredUsers().length === 0}
         <p class="empty-state">No {isMentorMode ? 'mentors' : 'students'} found.</p>
       {:else}
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>{isMentorMode ? 'Role' : 'Registration'}</th>
-                <th>Email</th>
-                <th>Department</th>
-                <th>{isMentorMode ? 'Phone' : 'Points'}</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each filteredUsers() as entry}
-                <tr>
-                  <td>
-                    <div class="person-cell">
-                      <div class="avatar-sm">{getInitial(entry.fullName)}</div>
-                      <div>
-                        <strong>{entry.fullName || 'Unknown User'}</strong>
-                        {#if !isMentorMode}
-                          <div class="muted">Year {entry.yearOfStudy || '-'}</div>
-                        {/if}
-                      </div>
-                    </div>
-                  </td>
-                  <td>{isMentorMode ? getRoleLabel(entry.role) : (entry.registrationNumber || '-')}</td>
-                  <td>{entry.email || '-'}</td>
-                  <td>{entry.department || '-'}</td>
-                  <td>{isMentorMode ? (entry.phone || '-') : (entry.cumulativePoints || 0)}</td>
-                  <td>
-                    <div class="action-group">
-                    <button class="btn btn-outline btn-sm" on:click={() => viewUserProfile(entry.id)}>
-                      View Profile
-                    </button>
-                    {#if canDeleteUsers}
-                      <button class="btn btn-danger btn-sm" on:click={() => requestDeleteAccount(entry)}>
-                        Delete Account
-                      </button>
+        <div class="user-list">
+          {#each filteredUsers() as entry}
+            <article class="user-card">
+              <div class="user-head">
+                <div class="user-identity">
+                  <div class="user-avatar">{getInitial(entry.fullName)}</div>
+                  <div class="user-title-block">
+                    <button
+                      class="user-name-btn"
+                      on:click={() => viewUserProfile(entry.id)}
+                      title="View profile"
+                    >{entry.fullName || 'Unknown'}</button>
+                    <span class="user-sub">
+                      {isMentorMode ? (entry.email || '-') : (entry.registrationNumber || 'No Reg. No.')}
+                    </span>
+                  </div>
+                </div>
+                <span class="user-role-badge">
+                  {isMentorMode ? getRoleLabel(entry.role) : `Year ${entry.yearOfStudy || '-'}`}
+                </span>
+              </div>
+              <div class="user-footer">
+                <div class="user-meta">
+                  {#if entry.department}
+                    <span class="meta-chip">{entry.department}</span>
+                  {/if}
+                  {#if isMentorMode}
+                    {#if entry.phone}
+                      <span class="meta-chip meta-chip-muted">{entry.phone}</span>
                     {/if}
-                    </div>
-                  </td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
+                  {:else}
+                    <span class="meta-chip meta-chip-points">{entry.cumulativePoints || 0} pts</span>
+                  {/if}
+                  {#if !isMentorMode && entry.email}
+                    <span class="meta-chip meta-chip-muted">{entry.email}</span>
+                  {/if}
+                </div>
+                <div class="user-actions">
+                  <button class="btn btn-outline btn-sm" on:click={() => viewUserProfile(entry.id)}>View Profile</button>
+                  {#if canDeleteUsers}
+                    <button class="btn btn-danger btn-sm" on:click={() => requestDeleteAccount(entry)}>Delete</button>
+                  {/if}
+                </div>
+              </div>
+            </article>
+          {/each}
         </div>
       {/if}
     </section>
@@ -396,37 +396,147 @@
     max-width: 520px;
   }
 
-  .table-wrapper {
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  th, td {
-    padding: 0.95rem 0.8rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-light);
-    vertical-align: middle;
-  }
-
-  th {
-    font-size: 0.76rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted);
-    background: var(--bg-secondary);
-  }
-
-  .person-cell {
-    display: flex;
-    align-items: center;
+  /* User card list */
+  .user-list {
+    display: grid;
     gap: 0.75rem;
   }
 
-  .avatar-sm, .avatar-lg {
+  .user-card {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+    transition: border-color 0.15s ease;
+  }
+
+  .user-card:hover {
+    border-color: var(--border-medium);
+  }
+
+  .user-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .user-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .user-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  .user-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .user-name-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.3;
+    transition: color 0.15s ease;
+  }
+
+  .user-name-btn:hover {
+    color: var(--primary);
+    text-decoration: underline;
+  }
+
+  .user-sub {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .user-role-badge {
+    flex-shrink: 0;
+    padding: 0.18rem 0.6rem;
+    border-radius: 999px;
+    background: var(--primary-50);
+    color: var(--primary);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+
+  .user-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.6rem;
+  }
+
+  .user-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .meta-chip-muted {
+    background: var(--bg-main);
+  }
+
+  .meta-chip-points {
+    background: var(--primary-50);
+    border-color: transparent;
+    color: var(--primary);
+    font-weight: 600;
+  }
+
+  .user-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .avatar-lg {
+    width: 72px;
+    height: 72px;
+    font-size: 1.9rem;
     border-radius: 9999px;
     background: var(--primary);
     color: white;
@@ -435,18 +545,6 @@
     justify-content: center;
     font-weight: 700;
     flex-shrink: 0;
-  }
-
-  .avatar-sm {
-    width: 40px;
-    height: 40px;
-    font-size: 0.95rem;
-  }
-
-  .avatar-lg {
-    width: 72px;
-    height: 72px;
-    font-size: 1.9rem;
   }
 
   .muted {
@@ -473,13 +571,6 @@
   .btn-sm {
     padding: 0.48rem 0.85rem;
     font-size: 0.8rem;
-  }
-
-  .action-group {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
-    flex-wrap: wrap;
   }
 
   .profile-modal {
@@ -568,8 +659,9 @@
       grid-template-columns: 1fr;
     }
 
-    .action-group :global(.btn) {
-      width: 100%;
+    .user-footer {
+      flex-direction: column;
+      align-items: flex-start;
     }
   }
 </style>

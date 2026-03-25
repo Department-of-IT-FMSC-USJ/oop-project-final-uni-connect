@@ -130,6 +130,11 @@
     window.dispatchEvent(new CustomEvent('sidebar:state-change', { detail: { collapsed } }));
   }
 
+  function isPunishmentNotification(item) {
+    if (!item?.message) return false;
+    return /\s-\d+\s*points?/i.test(item.message);
+  }
+
   function formatWhen(value) {
     if (!value) return '';
     const date = new Date(value);
@@ -202,7 +207,7 @@
       title="Notifications"
       on:click={toggleNotifications}
     >
-      {#if messageUnreadCount + systemUnreadCount > 0}
+      {#if !showNotifications && messageUnreadCount + systemUnreadCount > 0}
         <span class="notification-badge">{messageUnreadCount + systemUnreadCount}</span>
       {/if}
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -269,17 +274,26 @@
           System
         </div>
         {#each systemNotifications as item}
+          {@const isPunishment = isPunishmentNotification(item)}
           <button class="notification-item" on:click={() => openSystemNotification(item)}>
-            <div class="notification-icon system-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <line x1="12" y1="16" x2="12" y2="12"/>
-                <line x1="12" y1="8" x2="12.01" y2="8"/>
-              </svg>
+            <div class="notification-icon" class:system-icon={!isPunishment} class:punishment-icon={isPunishment}>
+              {#if isPunishment}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                  <line x1="12" y1="9" x2="12" y2="13"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+              {:else}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="12" y1="16" x2="12" y2="12"/>
+                  <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+              {/if}
             </div>
             <div class="notification-body">
               <div class="notification-row">
-                <strong>{item.title}</strong>
+                <strong class:punishment-title={isPunishment}>{isPunishment ? 'Punishment' : item.title}</strong>
                 <span class="notification-time">{formatWhen(item.createdAt)}</span>
               </div>
               <p>{item.message}</p>
@@ -645,6 +659,15 @@
   .system-icon {
     background: rgba(245, 158, 11, 0.12);
     color: var(--warning, #F59E0B);
+  }
+
+  .punishment-icon {
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--danger, #EF4444);
+  }
+
+  .punishment-title {
+    color: var(--danger, #EF4444);
   }
 
   .message-icon {
