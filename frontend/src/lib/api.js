@@ -1,4 +1,4 @@
-const API_BASE = "http://localhost:8080/api";
+const API_BASE = import.meta.env.PUBLIC_API_BASE || "http://localhost:8080/api";
 const DEFAULT_GET_CACHE_TTL = 5000;
 const responseCache = new Map();
 const inFlightGetRequests = new Map();

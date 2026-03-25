@@ -1,5 +1,6 @@
 package com.uniconnect.controller;
 
+import com.uniconnect.config.JwtService;
 import com.uniconnect.dto.LoginRequest;
 import com.uniconnect.dto.LoginResponse;
 import com.uniconnect.dto.RegisterRequest;
@@ -23,10 +24,12 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthenticationManager authenticationManager;
+    private final JwtService jwtService;
 
-    public AuthController(UserService userService, AuthenticationManager authenticationManager) {
+    public AuthController(UserService userService, AuthenticationManager authenticationManager, JwtService jwtService) {
         this.userService = userService;
         this.authenticationManager = authenticationManager;
+        this.jwtService = jwtService;
     }
 
     @PostMapping("/register")
@@ -46,7 +49,7 @@ public class AuthController {
             request.setRole(Role.UNDERGRADUATE);
             User user = userService.registerUser(request);
 
-            String token = "mock_token_for_" + user.getEmail();
+            String token = jwtService.generateToken(user);
             LoginResponse loginResp = new LoginResponse(
                     token, user.getId(), user.getEmail(), user.getFullName(),
                     user.getRole(), user.getDepartment(), user.getProfilePicture());
@@ -68,7 +71,7 @@ public class AuthController {
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
             User user = (User) userService.loadUserByUsername(request.getEmail());
-            String token = "mock_token_for_" + user.getEmail();
+            String token = jwtService.generateToken(user);
 
             LoginResponse loginResp = new LoginResponse(
                     token, user.getId(), user.getEmail(), user.getFullName(),

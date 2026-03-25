@@ -18,16 +18,16 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final UserService userService;
+    private final JwtService jwtService;
 
-    public JwtAuthenticationFilter(UserService userService) {
+    public JwtAuthenticationFilter(UserService userService, JwtService jwtService) {
         this.userService = userService;
+        this.jwtService = jwtService;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        // Never block authentication endpoints based on an Authorization header.
-        // The login/register endpoints must remain accessible even if a stale token exists in localStorage.
         String path = request.getRequestURI();
         if (path != null && path.startsWith("/api/auth/")) {
             filterChain.doFilter(request, response);
@@ -35,34 +35,31 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         final String authHeader = request.getHeader("Authorization");
-        final String tokenPrefix = "Bearer mock_token_for_";
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String authHeaderValue = authHeader.substring(7); // "Bearer " is 7 chars
+        String jwt = authHeader.substring(7);
 
-        if (authHeaderValue.startsWith("mock_token_for_")) {
-            String userEmail = authHeaderValue.substring("mock_token_for_".length());
+        try {
+            String userEmail = jwtService.extractUsername(jwt);
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                try {
-                    User user = (User) userService.loadUserByUsername(userEmail);
+                User user = (User) userService.loadUserByUsername(userEmail);
 
+                if (jwtService.isTokenValid(jwt, user)) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             user,
                             null,
                             user.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
-                } catch (Exception ignored) {
-                    // If the token is stale/invalid, just keep the request unauthenticated.
-                    // This avoids hard-blocking public endpoints or causing confusing 403s.
-                    SecurityContextHolder.clearContext();
                 }
             }
+        } catch (Exception ignored) {
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);
