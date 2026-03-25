@@ -237,43 +237,36 @@
     {:else if visibleMaterials().length === 0}
       <p class="empty-state">No notes found for the selected filters.</p>
     {:else}
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Type</th>
-              <th>Year</th>
-              <th>Uploaded By</th>
-              <th>Uploaded At</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each visibleMaterials() as item}
-              <tr>
-                <td>
-                  <div class="material-title">
-                    <button class="note-link" type="button" on:click={() => viewNote(item.materialId)}>
-                      {item.title}
-                    </button>
-                    <div class="muted material-description">{item.description || 'No description provided.'}</div>
-                  </div>
-                </td>
-                <td><span class="table-chip">{formatMaterialType(item.materialType)}</span></td>
-                <td><span class="table-chip table-chip-muted">Year {item.targetYearOfStudy || '-'}</span></td>
-                <td>{uploaderName(item)}</td>
-                <td>{item.uploadDate ? new Date(item.uploadDate).toLocaleString() : '-'}</td>
-                <td class="table-action">
-                  <div class="action-row table-action-row">
-                    <button class="btn btn-outline btn-sm" on:click={() => viewNote(item.materialId)}>View</button>
-                    <button class="btn btn-outline btn-sm" on:click={() => downloadNote(item.materialId, item.title)}>Download</button>
-                  </div>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="note-list">
+        {#each visibleMaterials() as item}
+          <article class="note-card">
+            <div class="note-head">
+              <div class="note-identity">
+                <div class="note-icon">PDF</div>
+                <div class="note-title-block">
+                  <button class="note-title-btn" type="button" on:click={() => viewNote(item.materialId)}>
+                    {item.title}
+                  </button>
+                  {#if item.description}
+                    <p class="note-desc">{item.description}</p>
+                  {/if}
+                </div>
+              </div>
+              <span class="table-chip">{formatMaterialType(item.materialType)}</span>
+            </div>
+            <div class="note-footer">
+              <div class="note-meta">
+                <span class="table-chip table-chip-muted">Year {item.targetYearOfStudy || '-'}</span>
+                <span class="meta-uploader">{uploaderName(item)}</span>
+                <span class="meta-date">{item.uploadDate ? new Date(item.uploadDate).toLocaleDateString() : '-'}</span>
+              </div>
+              <div class="note-actions">
+                <button class="btn btn-outline btn-sm" on:click={() => viewNote(item.materialId)}>View</button>
+                <button class="btn btn-outline btn-sm" on:click={() => downloadNote(item.materialId, item.title)}>Download</button>
+              </div>
+            </div>
+          </article>
+        {/each}
       </div>
     {/if}
   </section>
@@ -319,54 +312,185 @@
 </DashboardLayout>
 
 <style>
-  .hero-card { display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:center; gap:1.5rem; padding:2.25rem 2.5rem; margin-bottom:1.5rem; background:linear-gradient(135deg, var(--bg-main, #FFFFFF), var(--primary-50, #EEF2FB)); border:1px solid var(--border-light, #E2E8F0); border-radius:var(--radius, 12px); }
-  .hero-content { display:grid; gap:0.45rem; max-width:44rem; }
+  .hero-card {
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.5rem;
+    background: var(--bg-main);
+  }
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    inset: -10% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--bg-main) 40%, transparent 90%);
+    pointer-events: none;
+  }
+  .hero-card > * { position: relative; z-index: 1; }
+  .hero-content { display: grid; gap: 0.45rem; max-width: 44rem; }
   .hero-action { min-width: 11.5rem; min-height: 3.25rem; }
-  .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--primary, #4F7CDB); margin-bottom:0.5rem; }
-  .hero-copy,.muted,.helper-text { color:var(--text-secondary, #475569); }
-  .hero-copy { max-width: 40rem; line-height: 1.55; }
-  .toolbar { display:grid; gap:0.9rem; margin-bottom:1.25rem; }
+  .eyebrow {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    color: var(--primary);
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-main);
+  }
+  .hero-copy { color: var(--text-secondary); max-width: 40rem; line-height: 1.55; font-size: 0.875rem; }
+
+  .toolbar { display: grid; gap: 0.9rem; margin-bottom: 1.25rem; }
   .toolbar-search { width: 100%; }
-  .toolbar-filters { display:flex; gap:0.75rem; flex-wrap:wrap; }
-  .search-input { min-width:0; transition:border-color 0.2s ease, box-shadow 0.2s ease; }
-  .search-input:focus { outline:none; border-color:var(--primary, #4F7CDB); box-shadow:0 0 0 3px var(--primary-100, #D4DFFA); }
+  .toolbar-filters { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+  .search-input { min-width: 0; }
   .toolbar-filter { width: min(100%, 180px); }
-  .table-wrapper { overflow-x:auto; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { padding:1rem 0.75rem; border-bottom:1px solid var(--border-light, #E2E8F0); text-align:left; vertical-align:top; }
-  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted, #94A3B8); background:var(--bg-secondary, #F1F5F9); }
-  tbody tr { transition: background 0.18s ease; }
-  tbody tr:hover { background: var(--primary-50, #EEF2FB); }
-  th:last-child, td:last-child { text-align:right; white-space:nowrap; }
-  .empty-state { color:var(--text-muted, #94A3B8); }
-  .alert { padding:0.8rem 1rem; border-radius:var(--radius-sm, 8px); margin-bottom:1rem; }
-  .alert-error { background:var(--danger-light, #FEE2E2); color:#991b1b; }
-  .alert-success { background:var(--success-light, #DCFCE7); color:#065f46; }
-  .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:1rem; }
-  .full-width { grid-column:1 / -1; }
-  .form-group label { display:block; margin-bottom:0.35rem; font-size:0.82rem; color:var(--text-secondary, #475569); }
-  .modal-actions { display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem; }
-  .action-row { display:flex; align-items:center; gap:0.55rem; flex-wrap:wrap; }
-  .table-action-row { justify-content:flex-end; }
-  .material-title { display:grid; gap:0.3rem; max-width:20rem; }
-  .material-description { font-size:0.94rem; line-height:1.45; }
-  .note-link { padding:0; background:none; border:none; color:var(--text-main, #1E293B); font-size:1rem; font-weight:700; text-align:left; transition: color 0.18s ease; }
-  .note-link:hover { color:var(--primary, #4F7CDB); text-decoration:underline; text-underline-offset:0.16rem; }
-  .table-chip { display:inline-flex; align-items:center; padding:0.34rem 0.68rem; border-radius:999px; border:1px solid var(--border-light, #E2E8F0); background:var(--bg-secondary, #F1F5F9); color:var(--text-secondary, #475569); font-size:0.78rem; font-weight:600; white-space:nowrap; }
-  .table-chip-muted { background:var(--bg-main, #FFFFFF); color:var(--text-secondary, #475569); }
-  .table-action { width:1%; }
+
+  /* Note card list */
+  .note-list { display: grid; gap: 0.75rem; }
+
+  .note-card {
+    padding: 1.1rem 1.25rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+    transition: border-color 0.15s ease;
+  }
+
+  .note-card:hover { border-color: var(--border-medium); }
+
+  .note-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .note-identity {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    min-width: 0;
+  }
+
+  .note-icon {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-sm);
+    background: var(--danger-light, #FEE2E2);
+    color: var(--danger, #EF4444);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+  }
+
+  .note-title-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+  }
+
+  .note-title-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    cursor: pointer;
+    text-align: left;
+    line-height: 1.3;
+    transition: color 0.15s ease;
+  }
+
+  .note-title-btn:hover { color: var(--primary); text-decoration: underline; }
+
+  .note-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin: 0;
+  }
+
+  .note-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.65rem;
+  }
+
+  .note-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .meta-uploader {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+  }
+
+  .meta-date {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+  }
+
+  .note-actions { display: flex; gap: 0.5rem; flex-shrink: 0; }
+
+  .table-chip { display: inline-flex; align-items: center; padding: 0.2rem 0.6rem; border-radius: var(--radius-sm); border: 1px solid var(--border-light); font-size: 0.75rem; color: var(--text-secondary); font-weight: 500; white-space: nowrap; }
+  .table-chip-muted { background: var(--bg-main); }
+
+  .empty-state { color: var(--text-muted); font-size: 0.875rem; }
+  .alert { padding: 0.8rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; }
+  .alert-error { background: var(--danger-light); color: #991b1b; }
+  .alert-success { background: var(--success-light, #DCFCE7); color: #065f46; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .full-width { grid-column: 1 / -1; }
+  .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--text-secondary); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+  .helper-text { color: var(--text-secondary); font-size: 0.8rem; margin-top: 0.25rem; }
+  .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.8rem; }
 
   @media (max-width: 900px) {
-    .hero-card { grid-template-columns:1fr; padding:1.75rem; }
-    .hero-action { width:100%; }
+    .hero-card { grid-template-columns: 1fr; padding: 1.75rem; }
+    .hero-action { width: 100%; }
   }
 
   @media (max-width: 640px) {
     .toolbar-filters,
-    .form-grid { grid-template-columns:1fr; }
-    .toolbar-filters { display:grid; }
-    .toolbar-filter { width:100%; }
-    th:last-child, td:last-child { text-align:left; }
-    .table-action-row { justify-content:flex-start; }
+    .form-grid { grid-template-columns: 1fr; }
+    .toolbar-filters { display: grid; }
+    .toolbar-filter { width: 100%; }
+    .note-footer { flex-direction: column; align-items: flex-start; }
   }
 </style>

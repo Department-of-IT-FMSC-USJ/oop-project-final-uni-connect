@@ -90,7 +90,11 @@
               <div class="student-main">
                 <div class="student-head">
                   <div class="student-identity">
-                    <div class="student-avatar">{getInitial(student.fullName)}</div>
+                    {#if student.profilePicture}
+                      <img src={student.profilePicture} alt={student.fullName} class="student-avatar student-avatar-img" />
+                    {:else}
+                      <div class="student-avatar">{getInitial(student.fullName)}</div>
+                    {/if}
                     <div class="student-title-block">
                       <button
                         class="student-name-btn"
@@ -304,6 +308,10 @@
     font-weight: 700;
     font-size: 1rem;
     flex-shrink: 0;
+  }
+
+  .student-avatar-img {
+    object-fit: cover;
   }
 
   .student-title-block {

@@ -140,7 +140,11 @@
   <div class="modal-content chat-modal">
     <div class="chat-header">
       <div class="chat-header-info">
-        <div class="chat-avatar">{contact.fullName?.charAt(0) || '?'}</div>
+        {#if contact.profilePicture}
+          <img src={contact.profilePicture} alt={contact.fullName} class="chat-avatar chat-avatar-img" />
+        {:else}
+          <div class="chat-avatar">{contact.fullName?.charAt(0) || '?'}</div>
+        {/if}
         <div>
           <h3 class="chat-name">{contact.fullName}</h3>
           <p class="chat-email">{contact.email || ''}</p>
@@ -166,9 +170,11 @@
         {#each messages as message}
           {@const isOwn = String(message.senderId) === String(currentUser?.id || currentUser?.userId)}
           <div class="message-row" class:is-own={isOwn}>
-            {#if !isOwn}
-              <div class="msg-avatar">{contact.fullName?.charAt(0) || '?'}</div>
-            {/if}
+              {#if !isOwn && contact.profilePicture}
+                <img src={contact.profilePicture} alt={contact.fullName} class="msg-avatar msg-avatar-img" />
+              {:else if !isOwn}
+                <div class="msg-avatar">{contact.fullName?.charAt(0) || '?'}</div>
+              {/if}
             <div class="message-bubble" class:is-own={isOwn}>
               {#if !isOwn}
                 <span class="msg-sender">{message.senderName || contact.fullName}</span>
@@ -241,6 +247,10 @@
     flex-shrink: 0;
   }
 
+  .chat-avatar-img {
+    object-fit: cover;
+  }
+
   .chat-name {
     font-size: 1rem;
     font-weight: 600;
@@ -310,6 +320,10 @@
     font-size: 0.78rem;
     flex-shrink: 0;
     align-self: flex-end;
+  }
+
+  .msg-avatar-img {
+    object-fit: cover;
   }
 
   .message-bubble {

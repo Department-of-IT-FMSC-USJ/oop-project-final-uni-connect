@@ -4,7 +4,6 @@
   import { undergraduateNavItems } from '../../lib/navigation.js';
   import DashboardLayout from '../shared/DashboardLayout.svelte';
   import FeedbackDialog from '../shared/FeedbackDialog.svelte';
-  import CustomSelect from '../shared/CustomSelect.svelte';
   import { toast } from '../../lib/toast.js';
 
   let user = getCurrentUser();
@@ -15,12 +14,6 @@
   let events = [];
   let showFeedback = false;
   let feedbackSessionId = null;
-  let notePoolCount = 0;
-  let recentNotes = [];
-  let myProofs = [];
-  let proofError = '';
-  let proofSuccess = '';
-  let showProofUpload = false;
   let showInterestForm = false;
   let mentorFlowError = '';
   let mentorFlowLoading = false;
@@ -30,18 +23,6 @@
     specialization: '',
     preferredCompany: ''
   };
-  let proofForm = {
-    title: '',
-    description: '',
-    eventDate: '',
-    proofData: '',
-    category: 'ACTIVITY'
-  };
-
-  const proofCategoryOptions = [
-    { value: 'ACTIVITY', label: 'Activity' },
-    { value: 'AWARD', label: 'Award' }
-  ];
 
   function computeLevel(pts) {
     if (pts >= 2000) return { level: 'Level 5: Expert', next: 0 };
@@ -55,21 +36,16 @@
     initializeDashboard();
     refreshTimer = window.setInterval(() => refreshLiveData(), 15000);
     return () => {
-      if (refreshTimer) {
-        window.clearInterval(refreshTimer);
-      }
+      if (refreshTimer) window.clearInterval(refreshTimer);
     };
   });
 
   async function initializeDashboard() {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'UNDERGRADUATE') { window.location.href = getRoleDashboardPath(user.role); return; }
-
     await loadProfileSummary();
     await loadMentors();
     await loadUpcomingEvents();
-    await loadNotePoolSummary();
-    await loadProofs();
   }
 
   async function loadProfileSummary() {
@@ -95,17 +71,13 @@
           try {
             const mUser = await api.get(`/users/${conn.mentorId}`, { cache: false });
             mentors.academic = mUser.data;
-          } catch (e) {
-            console.error('Failed to load academic mentor profile', e);
-          }
+          } catch (e) { console.error('Failed to load academic mentor', e); }
         }
         if (conn.mentorType === 'Industry') {
           try {
             const mUser = await api.get(`/users/${conn.mentorId}`, { cache: false });
             mentors.industry = mUser.data;
-          } catch (e) {
-            console.error('Failed to load industry mentor profile', e);
-          }
+          } catch (e) { console.error('Failed to load industry mentor', e); }
         }
       }
     } catch (e) {
@@ -113,36 +85,14 @@
     }
   }
 
-  async function loadNotePoolSummary() {
-    try {
-      const materialsRes = await api.get('/materials', { cache: false });
-      const allMaterials = Array.isArray(materialsRes) ? materialsRes : (materialsRes.data || []);
-      notePoolCount = allMaterials.length;
-      recentNotes = allMaterials.slice(0, 3);
-    } catch (e) {
-      console.error('Failed to load note pool summary', e);
-    }
-  }
-
-  async function loadProofs() {
-    try {
-      myProofs = await api.get('/proofs/my', { cache: false });
-    } catch (e) {
-      console.error('Failed to load proof submissions', e);
-      myProofs = [];
-    }
-  }
-
   async function loadUpcomingEvents() {
     events = [];
     const studentId = user?.userId || user?.id;
     if (!studentId) return;
-
     try {
       const sessionsRes = await api.get(`/student-sessions/${studentId}`, { cache: false });
       const allSessions = Array.isArray(sessionsRes) ? sessionsRes : (sessionsRes?.data || []);
       const now = new Date();
-
       events = allSessions
         .map((session) => {
           const startsAt = toSessionDateTime(session?.sessionDate, session?.sessionTime);
@@ -157,7 +107,6 @@
         .filter(Boolean)
         .filter((entry) => entry.startsAt >= now)
         .sort((left, right) => left.startsAt - right.startsAt)
-        .slice(0, 5)
         .map((entry) => ({
           name: entry.name,
           date: `${entry.date}${entry.mentorName ? ` • ${entry.mentorName}` : ''}`
@@ -169,7 +118,7 @@
   }
 
   async function refreshLiveData() {
-    await Promise.all([loadProfileSummary(), loadMentors(), loadProofs(), loadUpcomingEvents()]);
+    await Promise.all([loadProfileSummary(), loadMentors(), loadUpcomingEvents()]);
   }
 
   function toSessionDateTime(sessionDate, sessionTime) {
@@ -179,52 +128,6 @@
     return parsed;
   }
 
-  async function submitProof() {
-    proofError = '';
-    proofSuccess = '';
-
-    if (!proofForm.title.trim() || !proofForm.eventDate || !proofForm.proofData.trim()) {
-      proofError = 'Title, event date, and evidence link are required.';
-      return;
-    }
-
-    const eventDate = new Date(`${proofForm.eventDate}T00:00:00`);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const oldestAllowed = new Date();
-    oldestAllowed.setFullYear(oldestAllowed.getFullYear() - 2);
-    oldestAllowed.setHours(0, 0, 0, 0);
-    if (eventDate > today) {
-      proofError = 'Event date cannot be in the future.';
-      return;
-    }
-    if (eventDate < oldestAllowed) {
-      proofError = 'Event date must be within the past two years.';
-      return;
-    }
-
-    if (!isGoogleDriveLink(proofForm.proofData)) {
-      proofError = 'Only Google Drive links are allowed for evidence.';
-      return;
-    }
-
-    try {
-      await api.post('/proofs', {
-        title: proofForm.title.trim(),
-        description: proofForm.description.trim(),
-        eventDate: proofForm.eventDate,
-        proofData: proofForm.proofData.trim(),
-        category: proofForm.category
-      });
-      proofForm = { title: '', description: '', eventDate: '', proofData: '', category: 'ACTIVITY' };
-      proofSuccess = 'Evidence submitted successfully.';
-      showProofUpload = false;
-      myProofs = await api.get('/proofs/my', { cache: false });
-    } catch (e) {
-      proofError = e?.data?.message || 'Failed to submit evidence.';
-    }
-  }
-
   async function submitIndustryInterestProfile() {
     mentorFlowError = '';
     const studentId = user?.userId || user?.id;
@@ -232,23 +135,16 @@
       mentorFlowError = 'Unable to identify your account. Please re-login.';
       return;
     }
-
-    const tags = [
-      interestForm.interestAreas,
-      interestForm.specialization,
-      interestForm.preferredCompany
-    ]
-      .map((value) => value?.trim())
+    const tags = [interestForm.interestAreas, interestForm.specialization, interestForm.preferredCompany]
+      .map((v) => v?.trim())
       .filter(Boolean)
-      .flatMap((value) => value.split(','))
-      .map((value) => value.trim())
+      .flatMap((v) => v.split(','))
+      .map((v) => v.trim())
       .filter(Boolean);
-
     if (tags.length < 2) {
       mentorFlowError = 'Add at least two interests/specialization tags.';
       return;
     }
-
     mentorFlowLoading = true;
     try {
       await api.post('/recommendations/student-profile', {
@@ -257,15 +153,11 @@
         department: user.department,
         interestTags: [...new Set(tags)].join(', ')
       });
-
       await api.post(`/mentor/industry/auto-assign/${studentId}`, {});
       await loadMentors();
       showInterestForm = false;
       interestForm = { interestAreas: '', specialization: '', preferredCompany: '' };
-      toast.success({
-        title: 'Mentor matched',
-        message: 'Your industry mentor recommendation has been assigned successfully.'
-      });
+      toast.success({ title: 'Mentor matched', message: 'Your industry mentor has been assigned successfully.' });
     } catch (e) {
       mentorFlowError = e?.data?.message || 'Unable to assign an industry mentor yet. Try refining your interests.';
     } finally {
@@ -277,248 +169,120 @@
     feedbackSessionId = sessionId;
     showFeedback = true;
   }
-
-  function maxEvidenceDate() {
-    return formatLocalDate(new Date());
-  }
-
-  function minEvidenceDate() {
-    const date = new Date();
-    date.setFullYear(date.getFullYear() - 2);
-    return formatLocalDate(date);
-  }
-
-  function formatLocalDate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  }
-
-  function isGoogleDriveLink(value) {
-    const trimmed = value?.trim();
-    if (!trimmed) return false;
-
-    try {
-      const url = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
-      return url.hostname.toLowerCase() === 'drive.google.com';
-    } catch {
-      return false;
-    }
-  }
 </script>
 
 <DashboardLayout navItems={undergraduateNavItems} activeItem="dashboard" pageTitle="Student Dashboard">
-  <div class="grid">
-    <div class="card points-card">
-      <h2 class="section-title">Your Progress & Points</h2>
+
+  <!-- Points / Progress — full-width hero -->
+  <section class="card points-hero">
+    <div class="points-left">
+      <p class="points-eyebrow">Your Progress</p>
       <div class="points-display">
         <span class="points-number">{points}</span>
-        <span class="points-label">Points</span>
+        <span class="points-unit">Points</span>
       </div>
+    </div>
+    <div class="points-right">
+      <p class="level-name">{level}</p>
       <div class="progress-bar">
         <div class="progress-fill" style="width: {Math.min(100, (points / (points + nextLevelPoints)) * 100)}%"></div>
       </div>
-      <p class="level-text">{level} <span class="next-text">{nextLevelPoints > 0 ? `${nextLevelPoints} points to go` : 'Max level!'}</span></p>
+      <p class="next-text">
+        {nextLevelPoints > 0 ? `${nextLevelPoints} points to next level` : 'Maximum level reached!'}
+      </p>
+    </div>
+  </section>
+
+  <!-- Two-column grid -->
+  <div class="dash-grid">
+
+    <!-- Left: Mentors stacked -->
+    <div class="mentors-col">
+
+      {#if mentors.academic}
+        <div class="card mentor-card">
+          <p class="mentor-type-label">Academic Mentor</p>
+          <div class="mentor-identity">
+            {#if mentors.academic.profilePicture}
+              <img src={mentors.academic.profilePicture} alt={mentors.academic.fullName} class="mentor-avatar mentor-avatar-img" />
+            {:else}
+              <div class="mentor-avatar">{mentors.academic.fullName?.charAt(0) || 'A'}</div>
+            {/if}
+            <div class="mentor-info">
+              <h3 class="mentor-name">{mentors.academic.fullName}</h3>
+              <p class="mentor-dept">{mentors.academic.department || 'Department not set'}</p>
+            </div>
+          </div>
+          <div class="mentor-actions">
+            <a href="/undergraduate/mentors" class="btn btn-primary btn-sm">View Sessions</a>
+            <a href="/undergraduate/mentors" class="btn btn-outline btn-sm">Send Message</a>
+          </div>
+        </div>
+      {:else}
+        <div class="card mentor-card mentor-empty">
+          <p class="mentor-type-label">Academic Mentor</p>
+          <p class="mentor-pending-text">You will be automatically assigned an academic mentor.</p>
+        </div>
+      {/if}
+
+      {#if mentors.industry}
+        <div class="card mentor-card mentor-industry">
+          <p class="mentor-type-label industry">Industry Mentor</p>
+          <div class="mentor-identity">
+            {#if mentors.industry.profilePicture}
+              <img src={mentors.industry.profilePicture} alt={mentors.industry.fullName} class="mentor-avatar industry-avatar mentor-avatar-img" />
+            {:else}
+              <div class="mentor-avatar industry-avatar">{mentors.industry.fullName?.charAt(0) || 'I'}</div>
+            {/if}
+            <div class="mentor-info">
+              <h3 class="mentor-name">{mentors.industry.fullName}</h3>
+              <p class="mentor-dept">{mentors.industry.department || 'Industry Professional'}</p>
+            </div>
+          </div>
+          <div class="mentor-actions">
+            <a href="/undergraduate/mentors" class="btn btn-accent btn-sm">View Sessions</a>
+            <a href="/undergraduate/mentors" class="btn btn-outline btn-sm">Send Message</a>
+          </div>
+        </div>
+      {:else if points >= 30}
+        <div class="card mentor-card mentor-empty">
+          <p class="mentor-type-label industry">Industry Mentor</p>
+          <p class="mentor-pending-text">You're eligible. Set your interest profile to get a mentor match.</p>
+          <button class="btn btn-accent btn-sm" on:click={() => showInterestForm = true}>Set Interests & Match Mentor</button>
+        </div>
+      {:else}
+        <div class="card mentor-card mentor-locked">
+          <p class="mentor-type-label">Industry Mentor</p>
+          <p class="mentor-locked-text">Earn {30 - points} more points to unlock industry mentor recommendations.</p>
+          <div class="progress-bar small">
+            <div class="progress-fill accent" style="width: {Math.min(100, (points / 30) * 100)}%"></div>
+          </div>
+        </div>
+      {/if}
+
     </div>
 
-    <div class="card events-card">
+    <!-- Right: Upcoming sessions -->
+    <section class="card sessions-col">
       <div class="section-header">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
-        </svg>
-        <h2>Upcoming Events</h2>
+        <h2 class="section-title">Upcoming Sessions</h2>
+        <a href="/undergraduate/mentors" class="mini-link">View all</a>
       </div>
       {#if events.length === 0}
-        <p class="empty-state">No upcoming events</p>
+        <p class="empty-state">No upcoming sessions scheduled.</p>
       {:else}
-        {#each events as event}
-          <div class="event-item">
-            <a href="/undergraduate/mentors" class="link-btn"><strong>{event.name}</strong></a>
-            <span>{event.date}</span>
-          </div>
-        {/each}
-      {/if}
-    </div>
-
-    <div class="card note-pool-card">
-      <div class="section-header">
-        <h2>Note Pool</h2>
-        <span class="pool-count">{notePoolCount}</span>
-      </div>
-      <p class="note-copy">Upload PDF notes to the shared note pool and browse notes from other students.</p>
-      {#if recentNotes.length === 0}
-        <p class="empty-state">No notes in the pool yet.</p>
-      {:else}
-        <div class="recent-note-list">
-          {#each recentNotes as item}
-            <div class="recent-note-item">
-              <strong>{item.title}</strong>
-              <span>Year {item.targetYearOfStudy || '-'}</span>
+        <div class="session-event-list">
+          {#each events as event}
+            <div class="session-event-item">
+              <div class="session-event-name">{event.name}</div>
+              <span class="session-event-date">{event.date}</span>
             </div>
           {/each}
         </div>
       {/if}
-      <div class="card-actions">
-        <a href="/undergraduate/note-pool?upload=1" class="btn btn-primary btn-sm">Upload Notes</a>
-        <a href="/undergraduate/note-pool" class="btn btn-outline btn-sm">View Note Pool</a>
-      </div>
-    </div>
-  </div>
-
-  <div class="dashboard-grid">
-    <section class="card evidence-card">
-      <div class="section-head">
-        <div>
-          <p class="eyebrow">Evidence</p>
-          <h2>Proof Submissions</h2>
-        </div>
-        <button class="btn btn-primary btn-sm" on:click={() => showProofUpload = true}>Upload Evidence</button>
-      </div>
-
-      {#if proofSuccess}
-        <div class="alert alert-success">{proofSuccess}</div>
-      {/if}
-      {#if myProofs.length === 0}
-        <p class="empty-state">No evidence submitted yet.</p>
-      {:else}
-        <div class="table-wrapper evidence-table-scroll">
-          <table>
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {#each myProofs as proof}
-                {@const isPunishment = proof.pointStatus === 'APPROVED' && Number(proof.latestPoints) < 0}
-                <tr>
-                  <td>
-                    {#if proof.proofData}
-                      <a href={proof.proofData} target="_blank" rel="noreferrer" class="link-btn">{proof.title}</a>
-                    {:else}
-                      {proof.title}
-                    {/if}
-                  </td>
-                  <td>{proof.pointCategory || '-'}</td>
-                  <td>
-                    <span
-                      class="status-chip"
-                      class:status-pending={!proof.pointStatus || proof.pointStatus === 'PENDING'}
-                      class:status-approved={proof.pointStatus === 'APPROVED' && !isPunishment}
-                      class:status-rejected={proof.pointStatus === 'REJECTED'}
-                      class:status-punishment={isPunishment}
-                    >
-                      {isPunishment ? 'Punishment' : (proof.pointStatus || 'PENDING')}
-                    </span>
-                  </td>
-                  <td>{proof.eventDate || '-'}</td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        </div>
-      {/if}
     </section>
 
-    <div class="mentors-section">
-      <h2 class="section-title">Your Mentors</h2>
-      <div class="mentor-grid">
-        {#if mentors.academic}
-          <div class="card mentor-card">
-            <div class="mentor-type">Academic Mentor</div>
-            <div class="mentor-info">
-              <div class="mentor-avatar">{mentors.academic.fullName?.charAt(0) || 'A'}</div>
-              <div>
-                <h3>{mentors.academic.fullName}</h3>
-                <p>{mentors.academic.department || 'Department not set'}</p>
-              </div>
-            </div>
-            <div class="mentor-actions">
-              <a href="/undergraduate/mentors" class="btn btn-primary btn-sm">View Sessions</a>
-              <a href="/undergraduate/mentors" class="btn btn-outline btn-sm">Send Message</a>
-            </div>
-          </div>
-        {:else}
-          <div class="card mentor-card pending">
-            <div class="mentor-type">Academic Mentor</div>
-            <p class="pending-text">You will be automatically assigned an academic mentor.</p>
-          </div>
-        {/if}
-
-        {#if mentors.industry}
-          <div class="card mentor-card industry">
-            <div class="mentor-type">Industry Mentor</div>
-            <div class="mentor-info">
-              <div class="mentor-avatar industry-avatar">{mentors.industry.fullName?.charAt(0) || 'I'}</div>
-              <div>
-                <h3>{mentors.industry.fullName}</h3>
-                <p>{mentors.industry.department || 'Industry Professional'}</p>
-              </div>
-            </div>
-            <div class="mentor-actions">
-              <a href="/undergraduate/mentors" class="btn btn-accent btn-sm">View Sessions</a>
-              <a href="/undergraduate/mentors" class="btn btn-outline btn-sm">Send Message</a>
-            </div>
-          </div>
-        {:else if points >= 30}
-          <div class="card mentor-card pending">
-            <div class="mentor-type">Industry Mentor</div>
-            <p class="pending-text">You're eligible. Complete your interest profile to get a mentor match.</p>
-            <button class="btn btn-accent btn-sm" on:click={() => showInterestForm = true}>Set Interests & Match Mentor</button>
-          </div>
-        {:else}
-          <div class="card mentor-card locked">
-            <div class="mentor-type">Industry Mentor</div>
-            <p class="locked-text">Earn {30 - points} more points to unlock industry mentor recommendations.</p>
-            <div class="progress-bar small">
-              <div class="progress-fill accent" style="width: {Math.min(100, (points / 30) * 100)}%"></div>
-            </div>
-          </div>
-        {/if}
-      </div>
-    </div>
   </div>
-
-  {#if showProofUpload}
-    <div class="modal-overlay" on:click|self={() => showProofUpload = false}>
-      <div class="modal-content">
-        <h2>Upload Evidence</h2>
-        {#if proofError}
-          <div class="alert alert-error">{proofError}</div>
-        {/if}
-        <div class="form-grid">
-          <div class="form-group full-width">
-            <label for="proof-title">Title</label>
-            <input id="proof-title" class="input" bind:value={proofForm.title} placeholder="Hackathon participation" />
-          </div>
-          <div class="form-group">
-            <label for="proof-category">Category</label>
-            <CustomSelect id="proof-category" options={proofCategoryOptions} bind:value={proofForm.category} />
-          </div>
-          <div class="form-group">
-            <label for="proof-date">Event Date</label>
-            <input id="proof-date" type="date" class="input" bind:value={proofForm.eventDate} min={minEvidenceDate()} max={maxEvidenceDate()} />
-          </div>
-          <div class="form-group full-width">
-            <label for="proof-description">Description</label>
-            <textarea id="proof-description" class="input" rows="4" bind:value={proofForm.description}></textarea>
-          </div>
-          <div class="form-group full-width">
-            <label for="proof-data">Evidence Link</label>
-            <textarea id="proof-data" class="input" rows="3" bind:value={proofForm.proofData} placeholder="Paste the Google Drive link here."></textarea>
-          </div>
-        </div>
-        <div class="modal-actions">
-          <button class="btn btn-outline" on:click={() => showProofUpload = false}>Cancel</button>
-          <button class="btn btn-primary" on:click={submitProof}>Submit Evidence</button>
-        </div>
-      </div>
-    </div>
-  {/if}
 
   {#if showInterestForm}
     <div class="modal-overlay" on:click|self={() => showInterestForm = false}>
@@ -560,67 +324,260 @@
       onSubmit={() => showFeedback = false}
     />
   {/if}
+
 </DashboardLayout>
 
 <style>
-  .link-btn { background:none; border:none; padding:0; color:var(--primary, #4F7CDB); font-weight:500; cursor:pointer; text-decoration:none; }
-  .link-btn:hover { text-decoration:underline; color:var(--primary-light, #6B93E4); }
-  .grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:1.5rem; margin-bottom:2rem; }
-  .dashboard-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:1.5rem; }
-  .section-title { font-size:1rem; font-weight:600; margin-bottom:1rem; color:var(--text-main, #1E293B); }
-  .section-header, .section-head { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:1rem; color:var(--text-secondary, #475569); }
-  .points-display { text-align:center; margin-bottom:1rem; }
-  .points-number { display:block; font-size:3rem; font-weight:700; color:var(--primary, #4F7CDB); line-height:1; }
-  .points-label { font-size:1rem; color:var(--text-muted, #94A3B8); font-weight:500; }
-  .progress-bar { height:8px; background:var(--bg-secondary, #F1F5F9); border-radius:4px; overflow:hidden; margin-bottom:0.5rem; }
-  .progress-bar.small { height:6px; margin-top:0.75rem; }
-  .progress-fill { height:100%; background:linear-gradient(90deg, var(--primary, #4F7CDB), var(--primary-light, #6B93E4)); border-radius:4px; transition:width 0.5s ease; }
-  .progress-fill.accent { background:linear-gradient(90deg, var(--accent, #2BA89C), var(--accent-light, #3DC0B3)); }
-  .level-text { font-size:0.8125rem; font-weight:500; color:var(--text-secondary, #475569); }
-  .next-text { color:var(--text-muted, #94A3B8); font-weight:400; }
-  .empty-state { color:var(--text-muted, #94A3B8); }
-  .note-copy { color:var(--text-secondary, #475569); margin-bottom:1rem; }
-  .pool-count { font-size:1.5rem; font-weight:700; color:var(--primary, #4F7CDB); }
-  .recent-note-list { display:grid; gap:0.65rem; margin-bottom:1rem; }
-  .recent-note-item { display:flex; justify-content:space-between; gap:0.75rem; padding:0.7rem 0.85rem; background:var(--bg-alt, #F8FAFC); border-radius:var(--radius-sm, 8px); color:var(--text-secondary, #475569); border:1px solid var(--border-light, #E2E8F0); }
-  .card-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
-  .table-wrapper { overflow-x:auto; }
-  .evidence-table-scroll { max-height: 18rem; overflow-y: auto; }
-  table { width:100%; border-collapse:collapse; }
-  th, td { padding:0.9rem 0.75rem; border-bottom:1px solid var(--border-light, #E2E8F0); text-align:left; }
-  th { font-size:0.76rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--text-muted, #94A3B8); background:var(--bg-secondary, #F1F5F9); position: sticky; top: 0; z-index: 1; }
-  tbody tr { transition:background 0.18s ease; }
-  tbody tr:hover { background:var(--primary-50, #EEF2FB); }
-  .status-chip {
-    display: inline-flex;
+  /* Points hero */
+  .points-hero {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
-    padding: 0.15rem 0.55rem;
-    border-radius: 999px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
+    gap: 2rem;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.5rem;
   }
-  .status-pending { background: rgba(245,158,11,0.12); color: #92400e; }
-  .status-approved { background: rgba(16,185,129,0.12); color: #065f46; }
-  .status-rejected { background: rgba(239,68,68,0.12); color: #991b1b; }
-  .status-punishment { background: rgba(245,158,11,0.15); color: #b45309; border: 1px solid rgba(245,158,11,0.3); }
-  .mentors-section { display:grid; gap:1rem; }
-  .mentor-grid { display:grid; gap:1rem; }
-  .mentor-card { display:grid; gap:1rem; border:1px solid var(--border-light, #E2E8F0); border-radius:var(--radius, 12px); }
-  .mentor-type { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--primary, #4F7CDB); }
-  .mentor-info { display:flex; gap:0.85rem; align-items:center; }
-  .mentor-avatar { width:48px; height:48px; border-radius:50%; background:var(--primary-50, #EEF2FB); color:var(--primary, #4F7CDB); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:1.1rem; }
-  .industry-avatar { background:var(--accent, #2BA89C); color:var(--bg-main, #FFFFFF); }
-  .mentor-actions { display:flex; gap:0.75rem; flex-wrap:wrap; }
-  .pending-text,.locked-text { color:var(--text-secondary, #475569); }
-  .modal-copy { margin:0.5rem 0 1rem; color:var(--text-secondary, #475569); }
-  .eyebrow { font-size:0.75rem; text-transform:uppercase; letter-spacing:0.08em; font-weight:700; color:var(--primary, #4F7CDB); margin-bottom:0.35rem; }
-  .alert { padding:0.8rem 1rem; border-radius:var(--radius-sm, 8px); margin-bottom:1rem; }
-  .alert-error { background:var(--danger-light, #FEE2E2); color:#991b1b; }
-  .alert-success { background:var(--success-light, #DCFCE7); color:#065f46; }
-  .form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-top:1rem; }
-  .full-width { grid-column:1 / -1; }
-  .form-group label { display:block; margin-bottom:0.35rem; font-size:0.82rem; color:var(--text-secondary, #475569); }
-  .modal-actions { display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1rem; }
-  @media (max-width: 1100px) { .grid, .dashboard-grid { grid-template-columns:1fr; } }
+
+  .points-left {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .points-eyebrow {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--primary);
+    opacity: 0.7;
+  }
+
+  .points-display {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+  }
+
+  .points-number {
+    font-family: var(--font-heading);
+    font-size: clamp(2.5rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    color: var(--text-main);
+    line-height: 1;
+  }
+
+  .points-unit {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .points-right {
+    flex: 1;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .level-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+  }
+
+  .progress-bar {
+    height: 8px;
+    background: var(--bg-secondary);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .progress-bar.small {
+    height: 6px;
+    margin-top: 0.5rem;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-light, #6B93E4));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+
+  .progress-fill.accent {
+    background: linear-gradient(90deg, var(--accent, #2BA89C), var(--accent-light, #3DC0B3));
+  }
+
+  .next-text {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+
+  /* Two-column grid */
+  .dash-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+
+  .mentors-col {
+    display: grid;
+    gap: 1rem;
+  }
+
+  /* Mentor cards */
+  .mentor-card {
+    display: grid;
+    gap: 0.85rem;
+  }
+
+  .mentor-type-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--primary);
+  }
+
+  .mentor-type-label.industry {
+    color: var(--accent, #2BA89C);
+  }
+
+  .mentor-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+  }
+
+  .mentor-avatar {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    background: var(--primary-50);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .mentor-avatar-img {
+    object-fit: cover;
+  }
+
+  .industry-avatar {
+    background: rgba(43, 168, 156, 0.12);
+    color: var(--accent, #2BA89C);
+  }
+
+  .mentor-name {
+    font-family: var(--font-heading);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-main);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+
+  .mentor-dept {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0;
+  }
+
+  .mentor-actions {
+    display: flex;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+  }
+
+  .mentor-empty,
+  .mentor-locked {
+    border-style: dashed;
+  }
+
+  .mentor-pending-text,
+  .mentor-locked-text {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 0;
+  }
+
+  /* Sessions column */
+  .sessions-col {
+    min-height: 180px;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-title {
+    font-family: var(--font-heading);
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-main);
+    margin: 0;
+  }
+
+  .mini-link {
+    color: var(--primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .mini-link:hover { text-decoration: underline; }
+
+  .session-event-list { display: grid; gap: 0.5rem; max-height: 26rem; overflow-y: auto; }
+
+  .session-event-item {
+    padding: 0.7rem 0.9rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius-sm);
+    background: var(--bg-alt);
+    display: grid;
+    gap: 0.2rem;
+    transition: border-color 0.15s ease;
+  }
+
+  .session-event-item:hover { border-color: var(--border-medium); }
+
+  .session-event-name {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.3;
+  }
+
+  .session-event-date { font-size: 0.75rem; color: var(--text-muted); }
+
+  .empty-state { color: var(--text-muted); font-size: 0.875rem; }
+
+  /* Modal */
+  .modal-copy { margin: 0.5rem 0 1rem; color: var(--text-secondary); font-size: 0.875rem; }
+  .alert { padding: 0.8rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; }
+  .alert-error { background: var(--danger-light); color: #991b1b; }
+  .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+  .full-width { grid-column: 1 / -1; }
+  .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--text-secondary); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
+  .btn-sm { padding: 0.375rem 0.8rem; font-size: 0.8rem; }
+
+  @media (max-width: 900px) {
+    .points-hero { flex-direction: column; align-items: flex-start; gap: 1rem; }
+    .points-right { max-width: 100%; width: 100%; }
+    .dash-grid { grid-template-columns: 1fr; }
+  }
 </style>

@@ -25,6 +25,19 @@
     { value: 'CUSTOM', label: 'Custom Student List' }
   ];
 
+  const durationOptions = [
+    { value: 15, label: '15 minutes' },
+    { value: 30, label: '30 minutes' },
+    { value: 45, label: '45 minutes' },
+    { value: 60, label: '1 hour' },
+    { value: 90, label: '1.5 hours' },
+    { value: 120, label: '2 hours' }
+  ];
+
+  function formatDate(iso) { return iso ? iso.split('T')[0] : '-'; }
+  function formatTime(iso) { if (!iso) return '-'; const t = iso.split('T')[1]; return t ? t.substring(0, 5) : '-'; }
+  function statusLabel(s) { return { SCHEDULED: 'Scheduled', CANCELLED: 'Cancelled', COMPLETED: 'Completed', MISSED: 'Missed', CREATED: 'Created' }[s] || s; }
+
   onMount(() => {
     if (!user) { window.location.href = '/'; return; }
     if (user.role !== 'ACADEMIC_MENTOR') { window.location.href = getRoleDashboardPath(user.role); return; }
@@ -45,7 +58,8 @@
       targetStudentIds: [],
       sessionDescription: '',
       sessionDate: '',
-      sessionTime: ''
+      sessionTime: '',
+      durationMinutes: 30
     };
   }
 
@@ -53,7 +67,7 @@
     loading = true;
     error = '';
     try {
-      const res = await api.get(`/academic/sessions/mentor/${user.userId || user.id}`, { cache: false });
+      const res = await api.get('/scheduling/sessions/my', { cache: false });
       sessions = res.data || [];
     } catch (e) {
       error = e?.data?.message || 'Failed to load sessions.';
@@ -109,23 +123,29 @@
     const isOneToOne = form.sessionType === 'ONE_TO_ONE';
     const isYearGroup = form.sessionType === 'YEAR';
     const isCustomGroup = form.sessionType === 'CUSTOM';
-    const targetStudentIds = isOneToOne
-      ? form.targetStudentIds.slice(0, 1)
-      : isCustomGroup
-        ? form.targetStudentIds
-        : [];
+
+    let participantUserIds;
+    if (isOneToOne) {
+      participantUserIds = form.targetStudentIds.slice(0, 1);
+    } else if (isYearGroup) {
+      participantUserIds = students
+        .filter(s => String(s.yearOfStudy || s.academicYear) === String(form.targetYearOfStudy))
+        .map(s => s.id || s.studentId);
+    } else if (isCustomGroup) {
+      participantUserIds = [...form.targetStudentIds];
+    } else {
+      participantUserIds = students.map(s => s.id || s.studentId);
+    }
+
+    const startsAt = `${form.sessionDate}T${form.sessionTime}`;
 
     return {
-      mentorId: user.userId || user.id,
-      sessionTitle: form.sessionTopic.trim(),
-      sessionTopic: form.sessionTopic.trim(),
-      sessionType: isOneToOne ? 'ONE_TO_ONE' : 'GROUP',
-      audienceMode: isOneToOne ? 'ONE_TO_ONE' : isYearGroup ? 'YEAR' : isCustomGroup ? 'CUSTOM' : 'ALL_ASSIGNED',
-      targetYearOfStudy: isYearGroup ? form.targetYearOfStudy : '',
-      targetStudentIds,
-      sessionDescription: form.sessionDescription.trim(),
-      sessionDate: form.sessionDate,
-      sessionTime: form.sessionTime
+      title: form.sessionTopic.trim(),
+      topic: form.sessionTopic.trim(),
+      description: form.sessionDescription.trim(),
+      startsAt,
+      durationMinutes: Number(form.durationMinutes),
+      participantUserIds
     };
   }
 
@@ -159,13 +179,13 @@
     }
 
     try {
-      await api.post('/academic/sessions', normalizedPayload());
+      await api.post('/scheduling/sessions', normalizedPayload());
       form = initialForm();
       showCreate = false;
       await loadSessions();
       toast.success({
         title: 'Session created',
-        message: 'Students and the HOD workspace were notified.'
+        message: 'A Jitsi meeting link was auto-generated for this session.'
       });
     } catch (e) {
       error = e?.data?.message || 'Failed to create session.';
@@ -179,15 +199,14 @@
 
   async function cancelSession() {
     if (!pendingCancelSession) return;
-    const mentorId = user.userId || user.id;
     cancelLoading = true;
     try {
-      await api.delete(`/academic/sessions/${pendingCancelSession.sessionId}?mentorId=${mentorId}`);
+      await api.post(`/scheduling/sessions/${pendingCancelSession.id}/cancel`);
       pendingCancelSession = null;
       await loadSessions();
       toast.success({
         title: 'Session cancelled',
-        message: 'Students and the HOD workspace were notified.'
+        message: 'Participants were notified.'
       });
     } catch (e) {
       const message = e?.data?.message || 'Failed to cancel session.';
@@ -198,11 +217,8 @@
     }
   }
 
-  function sessionAudienceLabel(session) {
-    if (session.sessionType === 'ONE_TO_ONE' || session.audienceMode === 'ONE_TO_ONE') return 'One student';
-    if (session.audienceMode === 'YEAR') return `Year ${session.targetYearOfStudy || '-'}`;
-    if (session.audienceMode === 'CUSTOM') return 'Custom student group';
-    return 'All assigned students';
+  function studentCount(session) {
+    return (session.participants || []).filter(p => p.participantRole === 'STUDENT').length;
   }
 
   const yearOptions = () => [...new Set(students.map((student) => student.yearOfStudy).filter(Boolean))];
@@ -214,7 +230,7 @@
       <div>
         <p class="eyebrow">Academic Mentor</p>
         <h2>Mentor-Created Sessions</h2>
-        <p class="hero-copy">Create one-to-one or group sessions for assigned students. Undergraduates only see sessions targeted to them.</p>
+        <p class="hero-copy">Create one-to-one or group sessions for assigned students. A Jitsi meeting link is auto-generated for each session.</p>
       </div>
       <button class="btn btn-primary" on:click={() => showCreate = true}>Create Session</button>
     </section>
@@ -232,16 +248,33 @@
         <div class="session-list">
           {#each sessions as session}
             <article class="session-card">
-              <div>
-                <h3>{session.sessionTitle}</h3>
-                <p class="muted">{session.sessionDescription || 'No description provided.'}</p>
+              <div class="session-card-head">
+                <div class="session-card-identity">
+                  <span class="session-card-title">{session.title}</span>
+                  {#if session.description}
+                    <p class="session-card-desc">{session.description}</p>
+                  {/if}
+                </div>
+                <span class="badge" class:badge-scheduled={session.status === 'SCHEDULED'}
+                      class:badge-cancelled={session.status === 'CANCELLED'}
+                      class:badge-completed={session.status === 'COMPLETED' || session.status === 'MISSED'}>
+                  {statusLabel(session.status)}
+                </span>
               </div>
-              <div class="session-meta">
-                <span class="badge badge-info">{session.sessionType === 'ONE_TO_ONE' ? 'One to one' : 'Group'}</span>
-                <span class="badge badge-soft">{sessionAudienceLabel(session)}</span>
-                <strong>{session.sessionDate} at {session.sessionTime}</strong>
+              <div class="session-card-footer">
+                <div class="session-card-meta">
+                  <span class="meta-chip">{formatDate(session.startsAt)}</span>
+                  <span class="meta-chip meta-chip-muted">{formatTime(session.startsAt)}</span>
+                  <span class="meta-chip">{session.durationMinutes} min</span>
+                  <span class="meta-chip">{studentCount(session)} student(s)</span>
+                </div>
                 <div class="session-actions">
-                  <button class="btn btn-danger btn-sm" on:click={() => requestCancelSession(session)}>Cancel Session</button>
+                  {#if session.canJoin}
+                    <a href={session.joinUrl || session.meetingJoinUrl} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">Join Session</a>
+                  {/if}
+                  {#if session.status === 'SCHEDULED'}
+                    <button class="btn btn-danger btn-sm" on:click={() => requestCancelSession(session)}>Cancel</button>
+                  {/if}
                 </div>
               </div>
             </article>
@@ -315,6 +348,10 @@
             <label for="academic-time">Time</label>
             <input id="academic-time" type="time" class="input" bind:value={form.sessionTime} min={minTimeForSelectedDate(form.sessionDate)} />
           </div>
+          <div class="form-group">
+            <label for="academic-duration">Duration</label>
+            <CustomSelect id="academic-duration" options={durationOptions} bind:value={form.durationMinutes} />
+          </div>
         </div>
         <div class="modal-actions">
           <button class="btn btn-outline" on:click={() => showCreate = false}>Cancel</button>
@@ -327,7 +364,7 @@
   <ConfirmDialog
     open={!!pendingCancelSession}
     title="Cancel session?"
-    message={`Cancel "${pendingCancelSession?.sessionTitle || 'this session'}"? Students and the HOD workspace will be notified.`}
+    message={`Cancel "${pendingCancelSession?.title || 'this session'}"? Participants will be notified.`}
     confirmLabel="Cancel session"
     tone="danger"
     busy={cancelLoading}
@@ -345,74 +382,139 @@
 
   /* -- Hero card -- */
   .hero-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    align-items: start;
-    padding: 2rem;
-    background: linear-gradient(135deg, var(--bg-main, #FFFFFF), var(--primary-50, #EEF2FB));
-    border-radius: var(--radius, 12px);
+    align-items: flex-start;
+    padding: 2rem 2.5rem;
+    background: var(--bg-main);
   }
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    inset: -10% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--bg-main) 40%, transparent 85%);
+    pointer-events: none;
+  }
+  .hero-card > * { position: relative; z-index: 1; }
   .eyebrow {
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 700;
-    color: var(--accent, #2BA89C);
+    letter-spacing: 0.14em;
+    font-weight: 600;
+    color: var(--primary);
+    opacity: 0.7;
     margin-bottom: 0.5rem;
   }
-  .hero-copy, .muted {
+  h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.3rem, 3vw, 1.8rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.4rem;
+    color: var(--text-main);
+  }
+  .hero-copy {
     color: var(--text-secondary, #475569);
+    font-size: 0.875rem;
   }
 
   /* -- Session list & cards -- */
   .session-list {
     display: grid;
-    gap: 1rem;
+    gap: 0.75rem;
   }
   .session-card {
-    border: 1px solid var(--border-light, #E2E8F0);
-    border-radius: var(--radius, 12px);
-    padding: 1rem 1.25rem;
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    padding: 1.1rem 1.25rem;
+    background: transparent;
+    transition: border-color 0.15s ease;
   }
   .session-card:hover {
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border-color: var(--border-medium, #CBD5E1);
+    border-color: var(--border-medium);
   }
-  .session-meta {
-    display: grid;
-    gap: 0.6rem;
-    text-align: right;
-    min-width: 220px;
+  .session-card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .session-card-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  .session-card-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.3;
+  }
+  .session-card-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+  .session-card-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border-light);
+    margin-top: 0.6rem;
+  }
+  .session-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .meta-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.6rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-light);
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .meta-chip-muted {
+    background: var(--bg-main);
   }
   .session-actions {
     display: flex;
-    justify-content: flex-end;
+    gap: 0.5rem;
+    flex-shrink: 0;
   }
 
-  /* -- Badges (pill-shaped, semantic) -- */
-  .badge-info {
+  /* -- Status badges -- */
+  .badge {
     display: inline-block;
     padding: 0.2rem 0.7rem;
     border-radius: 999px;
     font-size: 0.75rem;
     font-weight: 500;
-    background: var(--primary-100, #D4DFFA);
-    color: var(--primary-dark, #3A62B5);
+    flex-shrink: 0;
   }
-  .badge-soft {
-    display: inline-block;
-    padding: 0.2rem 0.7rem;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    background: var(--bg-secondary, #F1F5F9);
-    color: var(--text-secondary, #475569);
-  }
+  .badge-scheduled { background: #D1FAE5; color: #065F46; }
+  .badge-cancelled { background: #FEE2E2; color: #991B1B; }
+  .badge-completed { background: #E2E8F0; color: #475569; }
 
   /* -- Form card & inputs -- */
   .form-grid {
@@ -476,5 +578,10 @@
     align-items: center;
     color: var(--text-secondary, #475569);
     font-size: 0.875rem;
+  }
+
+  @media (max-width: 700px) {
+    .hero-card { flex-direction: column; }
+    .session-card-footer { flex-direction: column; align-items: flex-start; }
   }
 </style>

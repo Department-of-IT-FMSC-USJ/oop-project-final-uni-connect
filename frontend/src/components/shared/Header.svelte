@@ -65,9 +65,16 @@
     showNotifications = !showNotifications;
     if (showNotifications) {
       await loadNotifications();
-      if (!notificationsUnavailable && systemUnreadCount > 0) {
-        await api.put('/notifications/mark-all-read', {});
+      if (!notificationsUnavailable) {
+        try {
+          await api.put('/notifications/mark-all-read', {});
+        } catch (e) {
+          console.error('Failed to mark notifications as read', e);
+        }
+        const now = new Date().toISOString();
+        localStorage.setItem(NOTIFICATIONS_CLEARED_AT_KEY, now);
         systemUnreadCount = 0;
+        messageUnreadCount = 0;
       }
     }
   }
@@ -183,12 +190,19 @@
 <header class="header">
   <div class="header-copy">
     <div class="title-row">
-      <button class="icon-btn collapse-toggle" class:is-collapsed={sidebarCollapsed} type="button" on:click={toggleSidebar} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <line x1="3" y1="12" x2="21" y2="12"></line>
-          <line x1="3" y1="6" x2="21" y2="6"></line>
-          <line x1="3" y1="18" x2="21" y2="18"></line>
-        </svg>
+      <button class="icon-btn collapse-toggle" type="button" on:click={toggleSidebar} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+        {#if sidebarCollapsed}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        {:else}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        {/if}
       </button>
       <a href="/" class="brand-link" title="Go to home">
         <img src="/logo.jpg" alt="UniConnect" class="brand-logo" />
@@ -434,11 +448,7 @@
   }
 
   .collapse-toggle svg {
-    transition: transform 0.24s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .collapse-toggle.is-collapsed svg {
-    transform: scaleX(-1);
+    transition: opacity 0.2s ease;
   }
 
   .notification-trigger {

@@ -185,7 +185,11 @@
             <article class="user-card">
               <div class="user-head">
                 <div class="user-identity">
-                  <div class="user-avatar">{getInitial(entry.fullName)}</div>
+                  {#if entry.profilePicture}
+                    <img src={entry.profilePicture} alt={entry.fullName} class="user-avatar user-avatar-img" />
+                  {:else}
+                    <div class="user-avatar">{getInitial(entry.fullName)}</div>
+                  {/if}
                   <div class="user-title-block">
                     <button
                       class="user-name-btn"
@@ -249,7 +253,11 @@
         {:else if selectedUser}
           <div class="profile-panel">
             <div class="profile-summary">
-              <div class="avatar-lg">{getInitial(selectedUser.fullName)}</div>
+              {#if selectedUser.profilePicture}
+                <img src={selectedUser.profilePicture} alt={selectedUser.fullName} class="avatar-lg avatar-lg-img" />
+              {:else}
+                <div class="avatar-lg">{getInitial(selectedUser.fullName)}</div>
+              {/if}
               <div>
                 <h4>{selectedUser.fullName}</h4>
                 <p class="role-chip">{getRoleLabel(selectedUser.role)}</p>
@@ -442,6 +450,10 @@
     flex-shrink: 0;
   }
 
+  .user-avatar-img {
+    object-fit: cover;
+  }
+
   .user-title-block {
     display: flex;
     flex-direction: column;
@@ -545,6 +557,10 @@
     justify-content: center;
     font-weight: 700;
     flex-shrink: 0;
+  }
+
+  .avatar-lg-img {
+    object-fit: cover;
   }
 
   .muted {

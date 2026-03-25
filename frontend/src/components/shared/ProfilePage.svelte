@@ -28,8 +28,10 @@
     department: '',
     yearOfStudy: '',
     registrationNumber: '',
-    cpmNumber: ''
+    cpmNumber: '',
+    profilePicture: ''
   };
+  let profilePicturePreview = '';
 
   let mentorEditForm = {
     expertiseTags: '',
@@ -64,8 +66,21 @@
       department: profile?.department || '',
       yearOfStudy: profile?.yearOfStudy || '',
       registrationNumber: profile?.registrationNumber || '',
-      cpmNumber: profile?.cpmNumber || ''
+      cpmNumber: profile?.cpmNumber || '',
+      profilePicture: profile?.profilePicture || ''
     };
+    profilePicturePreview = profile?.profilePicture || '';
+  }
+
+  function handleProfilePictureChange(e) {
+    const file = e.target?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      editForm.profilePicture = String(reader.result || '');
+      profilePicturePreview = editForm.profilePicture;
+    };
+    reader.readAsDataURL(file);
   }
 
   function syncMentorEditForm() {
@@ -123,6 +138,7 @@
       const stored = getCurrentUser();
       if (stored) {
         stored.fullName = profile.fullName;
+        stored.profilePicture = profile.profilePicture || '';
         localStorage.setItem('user', JSON.stringify(stored));
       }
     } catch (e) {
@@ -179,9 +195,13 @@
     {:else if profile}
       <div class="card profile-card">
         <div class="profile-header">
-          <div class="avatar-lg">
-            {profile.fullName?.charAt(0) || 'U'}
-          </div>
+          {#if profile.profilePicture}
+            <img src={profile.profilePicture} alt={profile.fullName} class="avatar-lg avatar-img" />
+          {:else}
+            <div class="avatar-lg">
+              {profile.fullName?.charAt(0) || 'U'}
+            </div>
+          {/if}
           <div class="profile-meta">
             <h2>{profile.fullName}</h2>
             <p class="role-badge">{profile.role?.replace('_', ' ')}</p>
@@ -194,6 +214,24 @@
 
         {#if editing}
           <form class="edit-form" on:submit|preventDefault={saveProfile}>
+            <div class="form-group profile-picture-field">
+              <label>Profile Picture</label>
+              <div class="picture-edit-row">
+                {#if profilePicturePreview}
+                  <img src={profilePicturePreview} alt="Preview" class="avatar-edit-preview" />
+                {:else}
+                  <div class="avatar-edit-preview avatar-edit-placeholder">
+                    {editForm.fullName?.charAt(0) || 'U'}
+                  </div>
+                {/if}
+                <div class="picture-edit-actions">
+                  <label class="btn btn-outline btn-sm picture-upload-label">
+                    Change Photo
+                    <input type="file" accept="image/*" on:change={handleProfilePictureChange} class="sr-only" />
+                  </label>
+                </div>
+              </div>
+            </div>
             <div class="form-grid">
               <div class="form-group">
                 <label>Full Name</label>
@@ -367,6 +405,55 @@
     font-size: 2rem;
     font-weight: 600;
     flex-shrink: 0;
+  }
+
+  .avatar-img {
+    object-fit: cover;
+    background: var(--bg-alt);
+  }
+
+  .profile-picture-field {
+    margin-bottom: 1rem;
+  }
+
+  .picture-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.375rem;
+  }
+
+  .avatar-edit-preview {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+  }
+
+  .avatar-edit-placeholder {
+    background: var(--primary-50);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .picture-upload-label {
+    cursor: pointer;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
   }
 
   .profile-meta { flex: 1; }

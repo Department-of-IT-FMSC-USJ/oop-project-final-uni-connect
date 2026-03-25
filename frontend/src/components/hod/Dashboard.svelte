@@ -152,11 +152,16 @@
     }
   }
 
+  function formatDate(iso) { return iso ? iso.split('T')[0] : '-'; }
+  function formatTime(iso) { if (!iso) return '-'; const t = iso.split('T')[1]; return t ? t.substring(0, 5) : '-'; }
+  function statusLabel(s) { return { SCHEDULED: 'Scheduled', CANCELLED: 'Cancelled', COMPLETED: 'Completed', MISSED: 'Missed', CREATED: 'Created' }[s] || s; }
+  function getMentorParticipant(participants) { return (participants || []).find(p => p.participantRole === 'MENTOR'); }
+
   async function loadDepartmentSessions({ force = false } = {}) {
     try {
-      const res = await api.get('/hod/sessions', { cache: !force });
+      const res = await api.get('/scheduling/sessions/list', { cache: !force });
       if (!mounted) return;
-      departmentSessions = Array.isArray(res) ? res : [];
+      departmentSessions = res.data || [];
     } catch (e) {
       departmentSessions = [];
     }
@@ -255,10 +260,12 @@
     );
 
   $: filteredSessions = sessionSearchQuery.trim()
-    ? departmentSessions.filter((s) =>
-        (s.sessionTitle || '').toLowerCase().includes(sessionSearchQuery.trim().toLowerCase()) ||
-        (s.mentorName || '').toLowerCase().includes(sessionSearchQuery.trim().toLowerCase())
-      )
+    ? departmentSessions.filter((s) => {
+        const q = sessionSearchQuery.trim().toLowerCase();
+        const mentor = getMentorParticipant(s.participants);
+        return (s.title || '').toLowerCase().includes(q) ||
+          (mentor?.fullName || '').toLowerCase().includes(q);
+      })
     : departmentSessions;
 
   async function openStudentProfile(studentId, studentName) {
@@ -615,29 +622,34 @@
     {:else if filteredSessions.length === 0}
       <p class="empty-state">No sessions match your search.</p>
     {:else}
-      <div class="table-scroll-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Topic</th>
-              <th>Mentor</th>
-              <th>Type</th>
-              <th>Date</th>
-              <th>Time</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each filteredSessions as session}
-              <tr>
-                <td><strong>{session.sessionTitle}</strong></td>
-                <td>{session.mentorName}</td>
-                <td><span class="badge badge-info">{session.mentorType}</span></td>
-                <td>{session.sessionDate || '-'}</td>
-                <td>{session.sessionTime || '-'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
+      <div class="session-card-list">
+        {#each filteredSessions as session}
+          {@const mentor = getMentorParticipant(session.participants)}
+          <article class="session-item-card">
+            <div class="session-item-head">
+              <div class="session-item-identity">
+                <span class="session-item-title">{session.title}</span>
+                {#if mentor}<span class="session-item-mentor">{mentor.fullName}</span>{/if}
+              </div>
+              <span class="badge"
+                class:badge-scheduled={session.status === 'SCHEDULED'}
+                class:badge-cancelled={session.status === 'CANCELLED'}
+                class:badge-completed={session.status === 'COMPLETED' || session.status === 'MISSED'}>
+                {statusLabel(session.status)}
+              </span>
+            </div>
+            <div class="session-item-footer">
+              <div class="session-item-meta">
+                <span class="table-chip">{formatDate(session.startsAt)}</span>
+                <span class="table-chip table-chip-muted">{formatTime(session.startsAt)}</span>
+                <span class="table-chip">{session.durationMinutes} min</span>
+                {#if session.canJoin}
+                  <a href={session.joinUrl || session.meetingJoinUrl} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">Join</a>
+                {/if}
+              </div>
+            </div>
+          </article>
+        {/each}
       </div>
     {/if}
   </div>
@@ -1100,6 +1112,66 @@
     max-height: 18rem;
   }
 
+  .session-card-list {
+    display: grid;
+    gap: 0.65rem;
+    max-height: 22rem;
+    overflow-y: auto;
+  }
+
+  .session-item-card {
+    padding: 0.9rem 1.1rem;
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
+    background: transparent;
+    transition: border-color 0.15s ease;
+  }
+
+  .session-item-card:hover {
+    border-color: var(--border-medium);
+  }
+
+  .session-item-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .session-item-identity {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+  }
+
+  .session-item-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+    line-height: 1.3;
+  }
+
+  .session-item-mentor {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .session-item-footer {
+    margin-top: 0.5rem;
+    padding-top: 0.4rem;
+    border-top: 1px solid var(--border-light);
+  }
+
+  .session-item-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
   .curriculum-btn {
     position: relative;
     display: inline-flex;
@@ -1304,6 +1376,10 @@
     color: #b45309;
     border: 1px solid rgba(245, 158, 11, 0.3);
   }
+
+  .badge-scheduled { background: #D1FAE5; color: #065F46; }
+  .badge-cancelled { background: #FEE2E2; color: #991B1B; }
+  .badge-completed { background: #E2E8F0; color: #475569; }
 
   .evidence-footer {
     display: flex;
