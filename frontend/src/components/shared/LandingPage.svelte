@@ -106,6 +106,7 @@
 
   /* ── Scroll tracking ──────────────────────────────────────── */
   let problemWrap, solutionWrap;
+  let ctaSection;
   let problemFillEl, solutionFillEl;
   let problemLen = 1000, solutionLen = 1000;
   let pProg = 0, sProg = 0;
@@ -141,6 +142,10 @@
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   });
+
+  function scrollToNext(el) {
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  }
 
   async function handleLogin() {
     error = ''; loading = true;
@@ -223,6 +228,17 @@
           </svg>
         </a>
       </div>
+
+      <!-- Storytelling connector: see the problem -->
+      <div class="hero-connector" role="button" tabindex="0"
+           on:click={() => scrollToNext(problemWrap)}
+           on:keydown={(e) => e.key === 'Enter' && scrollToNext(problemWrap)}>
+        <div class="connector-label" style="transform:rotate(-8deg)">see the problem</div>
+        <svg class="connector-arrow" viewBox="0 0 24 64" fill="none">
+          <path d="M12,2 C11,14 13,28 12,42" stroke="#222" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>
+          <path d="M7,38 L12,52 L17,38" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
     </section>
 
     <!-- ═══ PROBLEM — Horizontal Winding Roadmap ═══════════════════ -->
@@ -252,6 +268,17 @@
               </div>
             {/each}
           </div>
+        </div>
+
+        <!-- Storytelling connector: our solution -->
+        <div class="section-connector" class:visible={pProg > 0.85} role="button" tabindex="0"
+             on:click={() => scrollToNext(solutionWrap)}
+             on:keydown={(e) => e.key === 'Enter' && scrollToNext(solutionWrap)}>
+          <div class="connector-label" style="transform:rotate(7deg)">our solution</div>
+          <svg class="connector-arrow" viewBox="0 0 24 64" fill="none">
+            <path d="M12,2 C13,14 11,28 12,42" stroke="var(--primary)" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>
+            <path d="M7,38 L12,52 L17,38" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
         </div>
       </div>
     </div>
@@ -288,11 +315,22 @@
             {/each}
           </div>
         </div>
+
+        <!-- Storytelling connector: so why waiting? -->
+        <div class="section-connector" class:visible={sProg > 0.85} role="button" tabindex="0"
+             on:click={() => scrollToNext(ctaSection)}
+             on:keydown={(e) => e.key === 'Enter' && scrollToNext(ctaSection)}>
+          <div class="connector-label" style="transform:rotate(-6deg)">So why waiting?</div>
+          <svg class="connector-arrow" viewBox="0 0 24 64" fill="none">
+            <path d="M12,2 C11,14 13,28 12,42" stroke="#222" stroke-width="2" stroke-dasharray="6 5" stroke-linecap="round"/>
+            <path d="M7,38 L12,52 L17,38" stroke="#222" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+          </svg>
+        </div>
       </div>
     </div>
 
     <!-- ═══ CTA ════════════════════════════════════════════════════ -->
-    <section class="cta-section" use:observeSection={'cta'} class:visible={visibleSections['cta']}>
+    <section class="cta-section" bind:this={ctaSection} use:observeSection={'cta'} class:visible={visibleSections['cta']}>
       <span class="eyebrow">Faculty of Management Studies</span>
       <h2 class="cta-heading">Your Academic<br/>Journey Starts Here.</h2>
       <p class="cta-sub">Everything you need to connect, learn, grow, and lead — all in one place.</p>
@@ -433,6 +471,8 @@
 </div>
 
 <style>
+  @import url('https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&display=swap');
+
   .landing { min-height: 100vh; background: var(--bg-main); }
 
   /* ── Navigation ─────────────────────────────────────────────── */
@@ -557,6 +597,7 @@
   .scroll-content {
     width: 94%; max-width: 960px;
     text-align: center;
+    position: relative;
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -682,6 +723,69 @@
   .hcard-body {
     font-size: 0.65rem; color: var(--text-secondary);
     line-height: 1.5; margin: 0;
+  }
+
+  /* ═══════════════════════════════════════════════════════════════
+     STORYTELLING CONNECTORS (inline labels + dashed arrows)
+     ═══════════════════════════════════════════════════════════════ */
+  .connector-label {
+    font-family: 'Caveat', cursive;
+    font-size: 1.35rem;
+    font-weight: 700;
+    color: #1a1a1a;
+    line-height: 1.15;
+    white-space: nowrap;
+    padding: 0.3rem 0.8rem;
+    background: white;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    border: 1px solid var(--border-light);
+  }
+  .connector-arrow {
+    width: 18px;
+    height: 48px;
+    display: block;
+  }
+
+  /* Hero connector — sits at the bottom of the hero, always visible */
+  .hero-connector {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    z-index: 10;
+    cursor: pointer;
+    animation: gentleBounce 2.4s ease-in-out infinite;
+  }
+  @keyframes gentleBounce {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50% { transform: translateX(-50%) translateY(6px); }
+  }
+
+  /* Section connector — sits at the bottom of scroll-sticky, outside scroll-content */
+  .section-connector {
+    position: absolute;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.4rem;
+    z-index: 15;
+    cursor: pointer;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+  }
+  .section-connector.visible {
+    opacity: 1;
+    pointer-events: auto;
+    animation: gentleBounce 2.4s ease-in-out infinite;
   }
 
   /* ═══════════════════════════════════════════════════════════════
@@ -827,6 +931,7 @@
     .hroad-card { width: clamp(105px, 18vw, 145px); padding: 0.55rem 0.65rem; }
     .hroad-card--rich { width: clamp(115px, 20vw, 155px); }
     .hroad-card p, .hcard-body { font-size: 0.62rem; }
+    .connector-label { font-size: 1.15rem; }
   }
 
   @media (max-width: 580px) {
@@ -855,5 +960,7 @@
     .avatar-wrap { margin-left: -8px; }
     .auth-section { padding: 1.5rem 1rem; }
     .auth-card { padding: 1.25rem; }
+    .hero-connector { display: none; }
+    .section-connector { display: none; }
   }
 </style>
