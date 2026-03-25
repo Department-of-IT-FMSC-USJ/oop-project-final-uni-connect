@@ -3,8 +3,9 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "frontend": "npm --prefix frontend run frontend",
-    "backend": "npm --prefix frontend run backend",
-    "dev-all": "npm --prefix frontend run dev-all"
+    "frontend": "npm --prefix frontend run dev",
+    "backend": "cd backend && mvn spring-boot:run",
+    "dev": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build"
   }
 }

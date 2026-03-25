@@ -1,0 +1,8 @@
+---
+import Layout from '../layouts/Layout.astro';
+import LandingPage from '../components/shared/LandingPage.svelte';
+---
+
+<Layout title="Sign In">
+  <LandingPage initialMode="login" client:load />
+</Layout>

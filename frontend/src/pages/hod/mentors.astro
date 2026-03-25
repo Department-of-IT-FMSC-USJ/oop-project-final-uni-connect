@@ -1,0 +1,17 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import UserDirectoryPage from '../../components/hod/UserDirectoryPage.svelte';
+import { hodNavItems } from '../../lib/navigation.js';
+---
+
+<Layout title="Mentors">
+  <UserDirectoryPage
+    client:load
+    navItems={hodNavItems}
+    activeItem="mentors"
+    pageTitle="Mentors"
+    heading="Mentor Management"
+    description="View all registered academic and industry mentors and open their full profiles directly from the HOD workspace."
+    mode="mentors"
+  />
+</Layout>

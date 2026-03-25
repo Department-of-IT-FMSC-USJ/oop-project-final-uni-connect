@@ -1,0 +1,41 @@
+package com.uniconnect.dto;
+
+import com.uniconnect.model.Role;
+
+public class LoginResponse {
+    private String token;
+    private Long userId;
+    private String email;
+    private String fullName;
+    private Role role;
+    private String department;
+    private String profilePicture;
+
+    public LoginResponse() {}
+
+    public LoginResponse(String token, Long userId, String email, String fullName,
+                         Role role, String department, String profilePicture) {
+        this.token = token;
+        this.userId = userId;
+        this.email = email;
+        this.fullName = fullName;
+        this.role = role;
+        this.department = department;
+        this.profilePicture = profilePicture;
+    }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+    public Role getRole() { return role; }
+    public void setRole(Role role) { this.role = role; }
+    public String getDepartment() { return department; }
+    public void setDepartment(String department) { this.department = department; }
+    public String getProfilePicture() { return profilePicture; }
+    public void setProfilePicture(String profilePicture) { this.profilePicture = profilePicture; }
+}

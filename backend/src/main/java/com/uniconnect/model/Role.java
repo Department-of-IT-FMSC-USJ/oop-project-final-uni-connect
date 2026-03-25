@@ -3,7 +3,7 @@ package com.uniconnect.model;
 public enum Role {
     UNDERGRADUATE,
     ACADEMIC_MENTOR,
-    ALUMNI_MENTOR,
-    DEPARTMENT_REP,
+    INDUSTRY_MENTOR,
+    DEPARTMENT_ASSISTANT,
     DEPARTMENT_HEAD
 }

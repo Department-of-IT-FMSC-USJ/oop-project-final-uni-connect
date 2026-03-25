@@ -30,7 +30,7 @@ public class ProofSubmission {
     private LocalDate eventDate;
 
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "CLOB")
     private String proofData;
 
     private String proofType;

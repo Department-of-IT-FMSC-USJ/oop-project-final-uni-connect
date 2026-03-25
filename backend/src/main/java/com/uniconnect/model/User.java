@@ -20,7 +20,7 @@ public class User implements UserDetails {
 
     public User(Long id, String fullName, String email, String password, Role role, String phone, String department,
             String profilePicture, String registrationNumber, String cpmNumber, String yearOfStudy,
-            Integer cumulativePoints, Boolean mentorEligible) {
+            Integer cumulativePoints, Boolean mentorEligible, Long managedByDepartmentHeadId, Boolean active) {
         this.id = id;
         this.fullName = fullName;
         this.email = email;
@@ -34,6 +34,8 @@ public class User implements UserDetails {
         this.yearOfStudy = yearOfStudy;
         this.cumulativePoints = cumulativePoints;
         this.mentorEligible = mentorEligible;
+        this.managedByDepartmentHeadId = managedByDepartmentHeadId;
+        this.active = active;
     }
 
     public static UserBuilder builder() {
@@ -64,7 +66,7 @@ public class User implements UserDetails {
     private Role role;
 
     @Lob
-    @Column(columnDefinition = "LONGTEXT")
+    @Column(columnDefinition = "CLOB")
     @JsonProperty("profilePicture")
     private String profilePicture;
 
@@ -93,6 +95,14 @@ public class User implements UserDetails {
     @Column(name = "mentor_eligible")
     @JsonProperty("mentorEligible")
     private Boolean mentorEligible = false;
+
+    @Column(name = "managed_by_department_head_id")
+    @JsonProperty("managedByDepartmentHeadId")
+    private Long managedByDepartmentHeadId;
+
+    @Column(name = "active")
+    @JsonProperty("active")
+    private Boolean active = true;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -229,6 +239,22 @@ public class User implements UserDetails {
         this.mentorEligible = mentorEligible;
     }
 
+    public Long getManagedByDepartmentHeadId() {
+        return managedByDepartmentHeadId;
+    }
+
+    public void setManagedByDepartmentHeadId(Long managedByDepartmentHeadId) {
+        this.managedByDepartmentHeadId = managedByDepartmentHeadId;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
     public static class UserBuilder {
         private String fullName;
         private String email;
@@ -242,6 +268,8 @@ public class User implements UserDetails {
         private String yearOfStudy;
         private Integer cumulativePoints;
         private Boolean mentorEligible;
+        private Long managedByDepartmentHeadId;
+        private Boolean active;
 
         UserBuilder() {
         }
@@ -306,11 +334,22 @@ public class User implements UserDetails {
             return this;
         }
 
+        public UserBuilder managedByDepartmentHeadId(Long managedByDepartmentHeadId) {
+            this.managedByDepartmentHeadId = managedByDepartmentHeadId;
+            return this;
+        }
+
+        public UserBuilder active(Boolean active) {
+            this.active = active;
+            return this;
+        }
+
         public User build() {
             Integer safePoints = cumulativePoints == null ? 0 : cumulativePoints;
             Boolean safeEligible = mentorEligible != null && mentorEligible;
+            Boolean safeActive = active == null || active;
             return new User(null, fullName, email, password, role, phone, department, profilePicture,
-                    registrationNumber, cpmNumber, yearOfStudy, safePoints, safeEligible);
+                    registrationNumber, cpmNumber, yearOfStudy, safePoints, safeEligible, managedByDepartmentHeadId, safeActive);
         }
     }
 }

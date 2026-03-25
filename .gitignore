@@ -6,10 +6,11 @@ build/
 # Astro
 .astro/
 
-# Spring Boot
+# Spring Boot / Java
 target/
 *.jar
 *.war
+*.class
 
 # Logs
 logs/
@@ -27,9 +28,12 @@ pnpm-debug.log*
 .idea/
 .vscode/
 *.iml
+*.swp
+*.swo
 
 # OS files
-.DS_Store
+**/.DS_Store
 Thumbs.db
-# Java build artifacts
-/target/
+
+# Uploaded files (ephemeral on deploy)
+**/uploads/

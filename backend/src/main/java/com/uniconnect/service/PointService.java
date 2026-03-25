@@ -12,6 +12,12 @@ import com.uniconnect.repository.PointAuditRepository;
 import com.uniconnect.repository.PointRecordRepository;
 import com.uniconnect.repository.ProofSubmissionRepository;
 import com.uniconnect.repository.UserRepository;
+import com.uniconnect.student.modules.mentor.entity.MentorConnection;
+import com.uniconnect.student.modules.mentor.enums.ConnectionStatus;
+import com.uniconnect.student.modules.mentor.enums.MentorType;
+import com.uniconnect.student.modules.mentor.repository.MentorConnectionRepository;
+import com.uniconnect.student.modules.recommendation.dto.RecommendationResponseDTO;
+import com.uniconnect.student.modules.recommendation.service.MentorRecommendationService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,14 +27,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.concurrent.ThreadLocalRandom;
+
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
+@Transactional
 public class PointService {
 
     private final PointRecordRepository pointRecordRepository;
     private final PointAuditRepository pointAuditRepository;
     private final ProofSubmissionRepository proofRepository;
     private final UserRepository userRepository;
+    private final MentorConnectionRepository mentorConnectionRepository;
+    private final MentorRecommendationService mentorRecommendationService;
+    private final SystemNotificationService systemNotificationService;
 
     private final int mentorThreshold;
 
@@ -36,16 +49,22 @@ public class PointService {
                         PointAuditRepository pointAuditRepository,
                         ProofSubmissionRepository proofRepository,
                         UserRepository userRepository,
+                        MentorConnectionRepository mentorConnectionRepository,
+                        MentorRecommendationService mentorRecommendationService,
+                        SystemNotificationService systemNotificationService,
                         @Value("${uniconnect.points.mentor-threshold:50}") int mentorThreshold) {
         this.pointRecordRepository = pointRecordRepository;
         this.pointAuditRepository = pointAuditRepository;
         this.proofRepository = proofRepository;
         this.userRepository = userRepository;
+        this.mentorConnectionRepository = mentorConnectionRepository;
+        this.mentorRecommendationService = mentorRecommendationService;
+        this.systemNotificationService = systemNotificationService;
         this.mentorThreshold = mentorThreshold;
     }
 
     public PointRecordResponse allocatePoints(User rep, AllocatePointsRequest request) {
-        requireRole(rep, Role.DEPARTMENT_REP, "Only department representatives can allocate points.");
+        requireHodWorkspaceRole(rep, "Only department heads or assistants can allocate points.");
 
         User student = userRepository.findById(request.getStudentId())
                 .orElseThrow(() -> new IllegalArgumentException("Student not found"));
@@ -90,7 +109,7 @@ public class PointService {
     }
 
     public List<PointRecordResponse> getPendingPoints(User head) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can review points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can review points.");
         return pointRecordRepository.findByStatus(PointStatus.PENDING).stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -110,7 +129,7 @@ public class PointService {
             if (!record.getStudent().getId().equals(requester.getId())) {
                 throw new IllegalArgumentException("You can only view your own audit records.");
             }
-        } else if (requester.getRole() != Role.DEPARTMENT_REP && requester.getRole() != Role.DEPARTMENT_HEAD) {
+        } else if (requester.getRole() != Role.DEPARTMENT_HEAD && requester.getRole() != Role.DEPARTMENT_ASSISTANT) {
             throw new IllegalArgumentException("Not authorized to view audit records.");
         }
 
@@ -120,7 +139,7 @@ public class PointService {
     }
 
     public PointRecordResponse reviewPoints(User head, Long recordId, ReviewPointsRequest request) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can review points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can review points.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -167,11 +186,27 @@ public class PointService {
             proofRepository.save(proof);
         }
 
+        if (saved.getStatus() == PointStatus.APPROVED) {
+            systemNotificationService.createNotification(
+                    saved.getStudent().getId(),
+                    "Points Approved",
+                    "Your submission was approved and " + afterPoints + " points were added to your account.",
+                    "/undergraduate/points"
+            );
+        } else if (saved.getStatus() == PointStatus.REJECTED) {
+            systemNotificationService.createNotification(
+                    saved.getStudent().getId(),
+                    "Submission Rejected",
+                    "Your submission was reviewed and rejected by the department.",
+                    "/undergraduate/points"
+            );
+        }
+
         return toResponse(saved);
     }
 
     public PointRecordResponse adjustPendingPoints(User head, Long recordId, PendingAdjustRequest request) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can adjust points.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can adjust points.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -218,7 +253,7 @@ public class PointService {
     }
 
     public PointRecordResponse undoReview(User head, Long recordId) {
-        requireRole(head, Role.DEPARTMENT_HEAD, "Only department heads can undo reviews.");
+        requireHodWorkspaceRole(head, "Only department heads or assistants can undo reviews.");
 
         PointRecord record = pointRecordRepository.findById(recordId)
                 .orElseThrow(() -> new IllegalArgumentException("Point record not found"));
@@ -254,8 +289,8 @@ public class PointService {
     }
 
     public List<EligibleStudentResponse> getEligibleStudents(User requester) {
-        if (requester.getRole() != Role.DEPARTMENT_REP && requester.getRole() != Role.DEPARTMENT_HEAD) {
-            throw new IllegalArgumentException("Only department reps or heads can view eligible students.");
+        if (requester.getRole() != Role.DEPARTMENT_HEAD && requester.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException("Only department heads or assistants can view eligible students.");
         }
 
         List<User> eligible = userRepository.findByMentorEligibleTrue();
@@ -343,9 +378,53 @@ public class PointService {
         }
 
         if (delta != 0) {
-            student.setCumulativePoints(current + delta);
-            student.setMentorEligible((current + delta) >= mentorThreshold);
+            int oldTotal = current;
+            int newTotal = current + delta;
+
+            student.setCumulativePoints(newTotal);
+            student.setMentorEligible(newTotal >= mentorThreshold);
             userRepository.save(student);
+
+            // Industry auto-connect trigger: one-time when the student crosses >30 points.
+            if (oldTotal <= 30 && newTotal > 30) {
+                Integer studentId = student.getId() == null ? null : student.getId().intValue();
+                if (studentId != null
+                        && !mentorConnectionRepository.existsByStudentIdAndMentorTypeAndConnectionStatus(
+                        studentId, MentorType.Industry, ConnectionStatus.Approved)) {
+
+                    try {
+                        List<RecommendationResponseDTO> recs = mentorRecommendationService.generateRecommendations(studentId);
+                        if (recs == null || recs.isEmpty()) {
+                            return;
+                        }
+
+                        int topScore = recs.stream()
+                                .map(r -> Optional.ofNullable(r.getMatchScore()).orElse(0))
+                                .max(Integer::compareTo)
+                                .orElse(0);
+
+                        List<RecommendationResponseDTO> top = recs.stream()
+                                .filter(r -> Optional.ofNullable(r.getMatchScore()).orElse(0) == topScore)
+                                .collect(Collectors.toList());
+
+                        RecommendationResponseDTO chosen = top.get(ThreadLocalRandom.current().nextInt(top.size()));
+                        Integer chosenMentorId = chosen.getMentorId();
+                        if (chosenMentorId == null) {
+                            return;
+                        }
+
+                        // Create approved industry connection.
+                        MentorConnection connection = new MentorConnection();
+                        connection.setStudentId(studentId);
+                        connection.setMentorId(chosenMentorId);
+                        connection.setMentorType(MentorType.Industry);
+                        connection.setConnectionStatus(ConnectionStatus.Approved);
+                        mentorConnectionRepository.save(connection);
+                    } catch (Exception ignored) {
+                        // Avoid breaking point updates; auto-connect will simply be skipped.
+                    }
+                }
+            }
         } else if (student.getMentorEligible() == null) {
             student.setMentorEligible(current >= mentorThreshold);
             userRepository.save(student);
@@ -353,8 +432,8 @@ public class PointService {
     }
 
     private void validatePoints(PointCategory category, Integer points) {
-        if (points == null || points <= 0) {
-            throw new IllegalArgumentException("Points must be greater than zero.");
+        if (points == null || points == 0) {
+            throw new IllegalArgumentException("Points cannot be zero.");
         }
 
         int max = switch (category) {
@@ -362,7 +441,7 @@ public class PointService {
             case AWARD -> 25;
         };
 
-        if (points > max) {
+        if (Math.abs(points) > max) {
             throw new IllegalArgumentException("Points exceed allowed range for " + category);
         }
     }
@@ -384,5 +463,11 @@ public class PointService {
             case "ADJUST", "ADJUSTED" -> PointAction.ADJUSTED;
             default -> throw new IllegalArgumentException("Invalid action. Use APPROVE, REJECT, or ADJUST.");
         };
+    }
+
+    private void requireHodWorkspaceRole(User user, String message) {
+        if (user.getRole() != Role.DEPARTMENT_HEAD && user.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException(message);
+        }
     }
 }

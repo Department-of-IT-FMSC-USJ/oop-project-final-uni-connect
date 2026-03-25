@@ -1,5 +1,6 @@
 package com.uniconnect.controller;
 
+import com.uniconnect.dto.ProofReviewRequest;
 import com.uniconnect.dto.ProofSubmissionRequest;
 import com.uniconnect.dto.ProofSubmissionResponse;
 import com.uniconnect.model.Role;
@@ -40,9 +41,17 @@ public class ProofController {
     public ResponseEntity<List<ProofSubmissionResponse>> getProofsForReps(
             @AuthenticationPrincipal User user,
             @RequestParam Optional<Long> studentId) {
-        if (user.getRole() != Role.DEPARTMENT_REP && user.getRole() != Role.DEPARTMENT_HEAD) {
-            throw new IllegalArgumentException("Only department reps or heads can view proofs.");
+        if (user.getRole() != Role.DEPARTMENT_HEAD && user.getRole() != Role.DEPARTMENT_ASSISTANT) {
+            throw new IllegalArgumentException("Only department heads or assistants can view proofs.");
         }
         return ResponseEntity.ok(proofService.getProofsForReps(studentId));
+    }
+
+    @PutMapping("/{proofId}/review")
+    public ResponseEntity<ProofSubmissionResponse> reviewProof(
+            @AuthenticationPrincipal User user,
+            @PathVariable Long proofId,
+            @Valid @RequestBody ProofReviewRequest request) {
+        return ResponseEntity.ok(proofService.reviewProof(user, proofId, request));
     }
 }

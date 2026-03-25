@@ -1,0 +1,17 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import UserDirectoryPage from '../../components/hod/UserDirectoryPage.svelte';
+import { hodNavItems } from '../../lib/navigation.js';
+---
+
+<Layout title="Students">
+  <UserDirectoryPage
+    client:load
+    navItems={hodNavItems}
+    activeItem="students"
+    pageTitle="Students"
+    heading="Student Directory"
+    description="Browse all registered students, inspect key academic details, and open the full student profile from a single HOD page."
+    mode="students"
+  />
+</Layout>

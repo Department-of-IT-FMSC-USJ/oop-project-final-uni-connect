@@ -1,0 +1,14 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import FeedbackPage from '../../components/hod/FeedbackPage.svelte';
+import { hodNavItems } from '../../lib/navigation.js';
+---
+
+<Layout title="Feedback">
+  <FeedbackPage
+    client:load
+    navItems={hodNavItems}
+    activeItem="feedback"
+    pageTitle="Feedback"
+  />
+</Layout>
