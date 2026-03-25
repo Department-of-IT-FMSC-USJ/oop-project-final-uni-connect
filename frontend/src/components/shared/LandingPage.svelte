@@ -364,106 +364,141 @@
 
   {:else if mode === 'login'}
     <section class="auth-section">
-      <div class="auth-card">
-        <h2>Welcome Back</h2>
-        <p class="auth-subtitle">Sign in to your account</p>
-        {#if error}<div class="alert alert-error">{error}</div>{/if}
-        <form on:submit|preventDefault={handleLogin}>
-          <div class="form-group">
-            <label for="login-email">Email</label>
-            <input id="login-email" type="email" class="input"
-                   placeholder="you@university.edu" bind:value={loginEmail} required />
-          </div>
-          <div class="form-group">
-            <label for="login-password">Password</label>
-            <input id="login-password" type="password" class="input"
-                   placeholder="Enter your password" bind:value={loginPassword} required />
-          </div>
-          <button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Signing in…' : 'Sign In'}
-          </button>
-        </form>
-        <p class="auth-switch">
-          New undergraduate student?
-          <a href="/register" class="link-btn">Create an account</a>
-        </p>
+      <div class="auth-bg" aria-hidden="true"></div>
+      <div class="auth-frame">
+        <div class="auth-brand-header">
+          <a href="/" class="auth-logo-link" aria-label="UniConnect home">
+            <img src="/logo.jpg" alt="UniConnect" class="auth-logo-img" />
+          </a>
+          <span class="eyebrow" style="margin-bottom:0.4rem">Faculty of Management Studies</span>
+          <h1 class="auth-heading">Welcome Back</h1>
+          <p class="auth-tagline-text">Sign in to continue your academic journey</p>
+        </div>
+        <div class="auth-card">
+          {#if error}<div class="alert alert-error">{error}</div>{/if}
+          <form on:submit|preventDefault={handleLogin}>
+            <div class="form-group">
+              <label for="login-email">Email</label>
+              <input id="login-email" type="email" class="input"
+                     placeholder="MC123456@mgt.sjp.ac.lk" bind:value={loginEmail} required />
+            </div>
+            <div class="form-group">
+              <label for="login-password">Password</label>
+              <input id="login-password" type="password" class="input"
+                     placeholder="Enter your password" bind:value={loginPassword} required />
+            </div>
+            <button type="submit" class="btn-auth" disabled={loading}>
+              {loading ? 'Signing in…' : 'Sign In'}
+              {#if !loading}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              {/if}
+            </button>
+          </form>
+          <p class="auth-switch">
+            New undergraduate student?
+            <a href="/register" class="link-btn">Create an account</a>
+          </p>
+        </div>
       </div>
     </section>
 
   {:else if mode === 'register'}
     <section class="auth-section">
-      <div class="auth-card register-card">
-        <h2>Create Your Account</h2>
-        <p class="auth-subtitle">Undergraduate registration</p>
-        {#if error}<div class="alert alert-error">{error}</div>{/if}
-        <form on:submit|preventDefault={handleRegister}>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="reg-name">Full Name</label>
-              <input id="reg-name" type="text" class="input" placeholder="John Doe"
-                     bind:value={regFullName} required />
-            </div>
-            <div class="form-group">
-              <label for="reg-phone">Phone</label>
-              <input id="reg-phone" type="tel" class="input" placeholder="+94 71 234 5678"
-                     bind:value={regPhone} />
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="reg-mc">Registration Number (MC Number)</label>
-            <input id="reg-mc" type="text" class="input" placeholder="123456"
-                   bind:value={regRegistrationNumber} required maxlength="6" inputmode="numeric" />
-          </div>
-          <div class="form-group">
-            <label for="reg-email">University Email</label>
-            <input id="reg-email" type="input" class="input" bind:value={regEmail} readonly required />
-            <small class="hint">Format: &lt;MC&gt;@mgt.sjp.ac.lk</small>
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="reg-dept">Department</label>
-              <CustomSelect id="reg-dept" options={departmentOptions} bind:value={regDepartment} />
-            </div>
-            <div class="form-group">
-              <label for="reg-year">Year of Study</label>
-              <CustomSelect id="reg-year" options={yearOfStudyOptions} bind:value={regYearOfStudy} />
-            </div>
-          </div>
-          <div class="form-group">
-            <label for="reg-cpm">CPM Number (5 digits)</label>
-            <input id="reg-cpm" type="text" class="input" placeholder="12345"
-                   bind:value={regCpmNumber} required maxlength="5" inputmode="numeric" />
-          </div>
-          <div class="form-group">
-            <label for="reg-profile">Profile Picture</label>
-            <input id="reg-profile" type="file" class="input" accept="image/*"
-                   on:change={handleProfilePictureChange} required />
-            {#if regProfilePicturePreview}
-              <div style="margin-top:0.75rem">
-                <img src={regProfilePicturePreview} alt="Profile preview"
-                     style="width:72px;height:72px;border-radius:12px;object-fit:cover" />
+      <div class="auth-bg" aria-hidden="true"></div>
+      <div class="auth-frame auth-frame--wide">
+        <div class="auth-brand-header">
+          <a href="/" class="auth-logo-link" aria-label="UniConnect home">
+            <img src="/logo.jpg" alt="UniConnect" class="auth-logo-img" />
+          </a>
+          <span class="eyebrow" style="margin-bottom:0.4rem">Undergraduate Registration</span>
+          <h1 class="auth-heading">Create Your Account</h1>
+          <p class="auth-tagline-text">Join the UniConnect mentoring platform</p>
+        </div>
+        <div class="auth-card">
+          {#if error}<div class="alert alert-error">{error}</div>{/if}
+          <form on:submit|preventDefault={handleRegister}>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-name">Full Name</label>
+                <input id="reg-name" type="text" class="input" placeholder="John Doe"
+                       bind:value={regFullName} required />
               </div>
-            {/if}
-          </div>
-          <div class="form-row">
-            <div class="form-group">
-              <label for="reg-pass">Password</label>
-              <input id="reg-pass" type="password" class="input" placeholder="Min 6 characters"
-                     bind:value={regPassword} required minlength="6" />
+              <div class="form-group">
+                <label for="reg-phone">Phone</label>
+                <input id="reg-phone" type="tel" class="input" placeholder="+94 71 234 5678"
+                       bind:value={regPhone} />
+              </div>
             </div>
-            <div class="form-group">
-              <label for="reg-confirm">Confirm Password</label>
-              <input id="reg-confirm" type="password" class="input" placeholder="Re-enter password"
-                     bind:value={regConfirmPassword} required />
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-mc">Registration Number (MC Number)</label>
+                <input id="reg-mc" type="text" class="input" placeholder="123456"
+                       bind:value={regRegistrationNumber} required maxlength="6" inputmode="numeric" />
+              </div>
+              <div class="form-group">
+                <label for="reg-email">University Email</label>
+                <input id="reg-email" type="text" class="input input--readonly" bind:value={regEmail} readonly required />
+                <small class="hint">Auto-generated: &lt;MC&gt;@mgt.sjp.ac.lk</small>
+              </div>
             </div>
-          </div>
-          <button type="submit" class="btn btn-primary btn-full" disabled={loading}>
-            {loading ? 'Creating account…' : 'Create Account'}
-          </button>
-        </form>
-        <p class="auth-switch">
-          Already have an account? <a href="/login" class="link-btn">Sign in</a>
-        </p>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-dept">Department</label>
+                <CustomSelect id="reg-dept" options={departmentOptions} bind:value={regDepartment} />
+              </div>
+              <div class="form-group">
+                <label for="reg-year">Year of Study</label>
+                <CustomSelect id="reg-year" options={yearOfStudyOptions} bind:value={regYearOfStudy} />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-cpm">CPM Number (5 digits)</label>
+                <input id="reg-cpm" type="text" class="input" placeholder="12345"
+                       bind:value={regCpmNumber} required maxlength="5" inputmode="numeric" />
+              </div>
+              <div class="form-group">
+                <label for="reg-profile">Profile Picture</label>
+                <div class="file-upload-wrap">
+                  <input id="reg-profile" type="file" class="input input--file" accept="image/*"
+                         on:change={handleProfilePictureChange} required />
+                  {#if regProfilePicturePreview}
+                    <img src={regProfilePicturePreview} alt="Profile preview" class="profile-preview" />
+                  {/if}
+                </div>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="reg-pass">Password</label>
+                <input id="reg-pass" type="password" class="input" placeholder="Min 6 characters"
+                       bind:value={regPassword} required minlength="6" />
+              </div>
+              <div class="form-group">
+                <label for="reg-confirm">Confirm Password</label>
+                <input id="reg-confirm" type="password" class="input" placeholder="Re-enter password"
+                       bind:value={regConfirmPassword} required />
+              </div>
+            </div>
+            <button type="submit" class="btn-auth" disabled={loading}>
+              {loading ? 'Creating account…' : 'Create Account'}
+              {#if !loading}
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                  <polyline points="12 5 19 12 12 19"/>
+                </svg>
+              {/if}
+            </button>
+          </form>
+          <p class="auth-switch">
+            Already have an account? <a href="/login" class="link-btn">Sign in</a>
+          </p>
+        </div>
       </div>
     </section>
   {/if}
@@ -882,39 +917,132 @@
   }
 
   /* ═══════════════════════════════════════════════════════════════
-     AUTH FORMS
+     AUTH PAGES
      ═══════════════════════════════════════════════════════════════ */
+
+  /* Full-viewport section — same base as .hero */
   .auth-section {
-    display: flex; justify-content: center;
-    padding: 2.5rem 1.5rem;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     min-height: calc(100vh - 56px);
-    align-items: flex-start; background: var(--bg-alt);
-    animation: fadeIn 0.4s ease-out;
+    padding: 3rem 1.5rem;
+    background: var(--bg-main);
+    overflow: hidden;
   }
+
+  /* Dot-grid — identical to .hero-bg */
+  .auth-bg {
+    position: absolute;
+    inset: -6% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 30px 30px;
+    pointer-events: none;
+  }
+  .auth-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 70% at 50% 40%, transparent 20%, var(--bg-main) 85%);
+    pointer-events: none;
+  }
+
+  /* Vertical stack frame — constrained width, centered */
+  .auth-frame {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 440px;
+    animation: heroFadeIn 0.6s ease-out;
+  }
+  .auth-frame--wide { max-width: 580px; }
+
+  /* Brand header — logo + eyebrow + heading + tagline */
+  .auth-brand-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .auth-logo-link { display: inline-block; margin-bottom: 1.25rem; }
+  .auth-logo-img  { height: 40px; width: auto; object-fit: contain; display: block; }
+  .auth-heading {
+    font-family: var(--font-heading);
+    font-size: clamp(1.9rem, 4.5vw, 2.8rem);
+    font-weight: 700;
+    letter-spacing: -0.04em;
+    line-height: 1.05;
+    color: var(--text-main);
+    margin-bottom: 0.4rem;
+  }
+  .auth-tagline-text {
+    font-size: 0.82rem;
+    color: var(--text-muted);
+    letter-spacing: 0.02em;
+    margin: 0;
+  }
+
+  /* Card */
   .auth-card {
-    background: var(--bg-main); border-radius: var(--radius-lg);
-    padding: 2.5rem; box-shadow: var(--shadow-md);
+    background: var(--bg-main);
+    border-radius: var(--radius-lg);
+    padding: 2rem 2.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 8px 32px rgba(46,75,143,0.07);
     border: 1px solid var(--border-light);
-    width: 100%; max-width: 400px;
-    animation: slideIn 0.5s ease-out;
+    width: 100%;
   }
-  .register-card { max-width: 520px; }
-  .auth-card h2 { font-size: 1.3rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.2rem; font-family: var(--font-heading); }
-  .auth-subtitle { color: var(--text-muted); font-size: 0.8rem; margin-bottom: 1.25rem; }
-  .form-group { margin-bottom: 0.85rem; }
-  .form-group label { display: block; font-size: 0.78rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.35rem; }
-  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; }
+
+  /* Form layout */
+  .form-group { margin-bottom: 1rem; }
+  .form-group label {
+    display: block; font-size: 0.78rem; font-weight: 600;
+    color: var(--text-main); margin-bottom: 0.35rem;
+  }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem; display: block; }
-  .btn-full {
-    width: 100%; padding: 0.6rem; margin-top: 0.4rem;
-    font-size: 0.85rem; background: var(--primary); color: #FFFFFF;
-    border: none; border-radius: var(--radius-sm); font-weight: 600;
-    cursor: pointer; transition: all var(--transition-fast);
+
+  /* Readonly input */
+  .input--readonly {
+    background: var(--bg-alt, #f5f6f8) !important;
+    color: var(--text-muted) !important;
+    cursor: default;
   }
-  .btn-full:hover    { background: var(--primary-dark); }
-  .btn-full:disabled { opacity: 0.6; cursor: not-allowed; }
-  .alert { padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem; margin-bottom: 0.85rem; animation: slideIn 0.3s ease-out; }
-  .alert-error { background: var(--danger-light); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); }
+
+  /* File input + avatar preview */
+  .file-upload-wrap { display: flex; align-items: center; gap: 0.85rem; }
+  .input--file { flex: 1; min-width: 0; }
+  .profile-preview {
+    width: 48px; height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary-50, #e8edfa);
+    flex-shrink: 0;
+  }
+
+  /* Submit button — mirrors .btn-cta from hero */
+  .btn-auth {
+    display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+    width: 100%; padding: 0.75rem 1.5rem; margin-top: 0.5rem;
+    font-size: 0.875rem; font-weight: 600; font-family: inherit;
+    border-radius: var(--radius); border: none; cursor: pointer;
+    color: white; background: var(--primary);
+    box-shadow: var(--shadow-md);
+    transition: box-shadow 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  }
+  .btn-auth:hover:not(:disabled) {
+    background: var(--primary-light);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .btn-auth:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* Alert */
+  .alert { padding: 0.6rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.8rem; margin-bottom: 1rem; }
+  .alert-error { background: var(--danger-light); color: var(--danger); border: 1px solid rgba(239,68,68,0.2); }
+
+  /* Switch line */
   .auth-switch { text-align: center; margin-top: 1.25rem; font-size: 0.8rem; color: var(--text-muted); }
   .link-btn { color: var(--primary); font-weight: 600; font-size: 0.8rem; text-decoration: none; transition: color var(--transition-fast); }
   .link-btn:hover { color: var(--primary-dark); text-decoration: none; }
@@ -930,6 +1058,7 @@
     .nav-logo { height: 32px; }
     .form-row { grid-template-columns: 1fr; }
     .auth-card { padding: 1.75rem; }
+    .auth-section { align-items: flex-start; padding-top: 2.5rem; }
     .brand-giant { font-size: clamp(2.5rem, 14vw, 6rem); }
     .scroll-wrap { height: 300vh; }
     .hroad-card { width: clamp(105px, 18vw, 145px); padding: 0.55rem 0.65rem; }
@@ -964,6 +1093,7 @@
     .avatar-wrap { margin-left: -8px; }
     .auth-section { padding: 1.5rem 1rem; }
     .auth-card { padding: 1.25rem; }
+    .auth-heading { font-size: 1.75rem; }
     .hero-connector { display: none; }
     .section-connector { display: none; }
   }
