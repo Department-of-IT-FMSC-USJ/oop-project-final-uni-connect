@@ -17,7 +17,6 @@
   let studentCount = 0;
   let assistantCount = 0;
   let assistants = [];
-  let showEvidenceReview = false;
   let showAddMentor = false;
   let selectedProof = null;
   let proofReviewAction = 'APPROVE';
@@ -479,13 +478,6 @@
       <input class="search-input" placeholder="Search student by name or ID..." bind:value={searchQuery} on:input={searchStudents} />
     </div>
 
-    <button class="btn btn-primary evidence-btn" on:click={() => showEvidenceReview = true}>
-      Evidence Review
-      {#if pendingProofCount > 0}
-        <span class="evidence-badge">{pendingProofCount}</span>
-      {/if}
-    </button>
-
     <button class="btn btn-outline" on:click={() => showAddMentor = true}>
       + Create Account
     </button>
@@ -600,6 +592,65 @@
     {/if}
   </div>
 
+  <!-- Evidence Review -->
+  <div class="card evidence-section">
+    <div class="card-header">
+      <h2 class="card-title">
+        Evidence Review
+        {#if pendingProofCount > 0}
+          <span class="pending-pill">{pendingProofCount} pending</span>
+        {/if}
+      </h2>
+    </div>
+    {#if dashboardLoading && proofs.length === 0}
+      <p class="empty-state">Loading evidence submissions...</p>
+    {:else if proofs.length === 0}
+      <p class="empty-state">No evidence submissions yet.</p>
+    {:else}
+      <div class="evidence-review-list">
+        {#each getEvidenceProofs() as proof}
+          <article class="evidence-review-card">
+            <div class="evidence-review-main">
+              <div class="evidence-review-head">
+                <div>
+                  <p class="evidence-student">{proof.studentName || `Student #${proof.studentId}`}</p>
+                  <h3>{proof.title}</h3>
+                </div>
+                <span
+                  class="badge"
+                  class:badge-warning={!proof.pointStatus || proof.pointStatus === 'PENDING'}
+                  class:badge-success={proof.pointStatus === 'APPROVED'}
+                  class:badge-danger={proof.pointStatus === 'REJECTED'}
+                >
+                  {formatProofStatus(proof.pointStatus)}
+                </span>
+              </div>
+              <p class="evidence-description">{proof.description || 'No extra note provided with this evidence submission.'}</p>
+              <div class="evidence-meta">
+                <span class="table-chip">{formatProofCategory(proof.pointCategory)}</span>
+                <span class="table-chip table-chip-muted">{proof.eventDate || 'No date'}</span>
+                {#if proof.latestPoints}
+                  <span class="table-chip table-chip-muted">{proof.latestPoints} pts</span>
+                {/if}
+              </div>
+            </div>
+            <div class="evidence-review-actions">
+              {#if proof.proofData}
+                <a class="btn btn-outline btn-sm" href={proof.proofData} target="_blank" rel="noreferrer">View Evidence</a>
+              {/if}
+              {#if !proof.pointStatus || proof.pointStatus === 'PENDING'}
+                <button class="btn btn-success btn-sm" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
+                <button class="btn btn-danger btn-sm" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
+              {:else}
+                <span class="reviewed-label">Already reviewed</span>
+              {/if}
+            </div>
+          </article>
+        {/each}
+      </div>
+    {/if}
+  </div>
+
   <!-- Main Grid -->
   <div class="dashboard-grid">
     <!-- Low Rating Feedbacks -->
@@ -656,68 +707,6 @@
       {/if}
     </div>
   </div>
-
-  <!-- Evidence Review Modal -->
-  {#if showEvidenceReview}
-    <div class="modal-overlay" on:click|self={() => showEvidenceReview = false}>
-      <div class="modal-content wide-modal evidence-modal">
-        <div class="modal-header">
-          <div>
-            <p class="eyebrow">Review Submissions</p>
-            <h2>Student Evidence Review</h2>
-          </div>
-          <button class="close-btn" on:click={() => showEvidenceReview = false}>✕</button>
-        </div>
-        {#if dashboardLoading && proofs.length === 0}
-          <p class="empty-state">Loading evidence submissions...</p>
-        {:else if proofs.length === 0}
-          <p class="empty-state">No evidence submissions yet.</p>
-        {:else}
-          <div class="evidence-review-list">
-            {#each getEvidenceProofs() as proof}
-              <article class="evidence-review-card">
-                <div class="evidence-review-main">
-                  <div class="evidence-review-head">
-                    <div>
-                      <p class="evidence-student">{proof.studentName || `Student #${proof.studentId}`}</p>
-                      <h3>{proof.title}</h3>
-                    </div>
-                    <span
-                      class="badge"
-                      class:badge-warning={!proof.pointStatus || proof.pointStatus === 'PENDING'}
-                      class:badge-success={proof.pointStatus === 'APPROVED'}
-                      class:badge-danger={proof.pointStatus === 'REJECTED'}
-                    >
-                      {formatProofStatus(proof.pointStatus)}
-                    </span>
-                  </div>
-                  <p class="evidence-description">{proof.description || 'No extra note provided with this evidence submission.'}</p>
-                  <div class="evidence-meta">
-                    <span class="table-chip">{formatProofCategory(proof.pointCategory)}</span>
-                    <span class="table-chip table-chip-muted">{proof.eventDate || 'No date'}</span>
-                    {#if proof.latestPoints}
-                      <span class="table-chip table-chip-muted">{proof.latestPoints} pts</span>
-                    {/if}
-                  </div>
-                </div>
-                <div class="evidence-review-actions">
-                  {#if proof.proofData}
-                    <a class="btn btn-outline btn-sm" href={proof.proofData} target="_blank" rel="noreferrer">View Evidence</a>
-                  {/if}
-                  {#if !proof.pointStatus || proof.pointStatus === 'PENDING'}
-                    <button class="btn btn-success btn-sm" on:click={() => openProofReview(proof, 'APPROVE')}>Approve</button>
-                    <button class="btn btn-danger btn-sm" on:click={() => openProofReview(proof, 'REJECT')}>Reject</button>
-                  {:else}
-                    <span class="reviewed-label">Already reviewed</span>
-                  {/if}
-                </div>
-              </article>
-            {/each}
-          </div>
-        {/if}
-      </div>
-    </div>
-  {/if}
 
   {#if selectedProof}
     <div class="modal-overlay" on:click|self={() => selectedProof = null}>
@@ -954,7 +943,21 @@
     background: transparent;
   }
 
-  .evidence-btn { position: relative; }
+  .evidence-section { margin-bottom: 1.5rem; }
+  .pending-pill {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 0.5rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    background: var(--danger-light);
+    color: var(--danger);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    vertical-align: middle;
+  }
+
   .curriculum-btn {
     position: relative;
     display: inline-flex;
@@ -1049,15 +1052,6 @@
 
   .empty-state { color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 2rem; }
 
-  .wide-modal { max-width: 800px; }
-  .evidence-modal {
-    max-width: 920px;
-    width: min(920px, 92vw);
-    max-height: 85vh;
-    display: flex;
-    flex-direction: column;
-    border-radius: var(--radius-lg);
-  }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
   .modal-header h2 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
   .close-btn { background: none; font-size: 1.25rem; color: var(--text-muted); }
@@ -1095,11 +1089,6 @@
   .evidence-review-list {
     display: grid;
     gap: 1rem;
-    overflow-y: auto;
-    flex: 1;
-    min-height: 0;
-    max-height: 60vh;
-    padding-right: 0.5rem;
   }
 
   .evidence-review-card {
