@@ -87,30 +87,29 @@
 
   async function loadUpcomingEvents() {
     events = [];
-    const studentId = user?.userId || user?.id;
-    if (!studentId) return;
     try {
-      const sessionsRes = await api.get(`/student-sessions/${studentId}`, { cache: false });
-      const allSessions = Array.isArray(sessionsRes) ? sessionsRes : (sessionsRes?.data || []);
+      const sessionsRes = await api.get('/scheduling/sessions/my', { cache: false });
+      const allSessions = sessionsRes?.data || [];
       const now = new Date();
       events = allSessions
+        .filter((session) => session.status === 'SCHEDULED' || session.status === 'CREATED')
         .map((session) => {
-          const startsAt = toSessionDateTime(session?.sessionDate, session?.sessionTime);
-          if (!startsAt) return null;
+          const startsAt = session.startsAt ? new Date(session.startsAt) : null;
+          if (!startsAt || Number.isNaN(startsAt.getTime())) return null;
+          const mentor = (session.participants || []).find(p => p.participantRole === 'MENTOR');
           return {
-            name: session?.sessionTitle || session?.sessionTopic || 'Mentor Session',
-            date: `${session?.sessionDate || '-'} ${session?.sessionTime || ''}`.trim(),
-            mentorName: session?.mentorName || '',
+            name: session.title || session.topic || 'Mentor Session',
+            dateLabel: `${session.startsAt.split('T')[0]} ${(session.startsAt.split('T')[1] || '').substring(0, 5)}`.trim(),
+            mentorName: mentor?.fullName || '',
+            duration: session.durationMinutes,
+            joinUrl: session.joinUrl || session.meetingJoinUrl,
+            canJoin: session.canJoin,
             startsAt
           };
         })
         .filter(Boolean)
         .filter((entry) => entry.startsAt >= now)
-        .sort((left, right) => left.startsAt - right.startsAt)
-        .map((entry) => ({
-          name: entry.name,
-          date: `${entry.date}${entry.mentorName ? ` • ${entry.mentorName}` : ''}`
-        }));
+        .sort((left, right) => left.startsAt - right.startsAt);
     } catch (e) {
       console.error('Failed to load upcoming events', e);
       events = [];
@@ -119,13 +118,6 @@
 
   async function refreshLiveData() {
     await Promise.all([loadProfileSummary(), loadMentors(), loadUpcomingEvents()]);
-  }
-
-  function toSessionDateTime(sessionDate, sessionTime) {
-    if (!sessionDate || !sessionTime) return null;
-    const parsed = new Date(`${sessionDate}T${sessionTime}`);
-    if (Number.isNaN(parsed.getTime())) return null;
-    return parsed;
   }
 
   async function submitIndustryInterestProfile() {
@@ -274,8 +266,13 @@
         <div class="session-event-list">
           {#each events as event}
             <div class="session-event-item">
-              <div class="session-event-name">{event.name}</div>
-              <span class="session-event-date">{event.date}</span>
+              <div class="session-event-head">
+                <div class="session-event-name">{event.name}</div>
+                {#if event.canJoin}
+                  <a href={event.joinUrl} target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-xs">Join</a>
+                {/if}
+              </div>
+              <span class="session-event-date">{event.dateLabel}{event.mentorName ? ` • ${event.mentorName}` : ''}{event.duration ? ` • ${event.duration} min` : ''}</span>
             </div>
           {/each}
         </div>
@@ -554,6 +551,13 @@
 
   .session-event-item:hover { border-color: var(--border-medium); }
 
+  .session-event-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
   .session-event-name {
     font-size: 0.875rem;
     font-weight: 600;
@@ -574,6 +578,7 @@
   .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.82rem; color: var(--text-secondary); }
   .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; margin-top: 1rem; }
   .btn-sm { padding: 0.375rem 0.8rem; font-size: 0.8rem; }
+  .btn-xs { padding: 0.25rem 0.6rem; font-size: 0.72rem; }
 
   @media (max-width: 900px) {
     .points-hero { flex-direction: column; align-items: flex-start; gap: 1rem; }
