@@ -458,16 +458,16 @@
   <!-- Top Actions -->
   <div class="stats-strip">
     <div class="card stat-card">
-      <span class="stat-label">Registered Mentors</span>
       <strong class="stat-value">{mentorCount}</strong>
+      <span class="stat-label">Registered Mentors</span>
     </div>
     <div class="card stat-card">
-      <span class="stat-label">Registered Students</span>
       <strong class="stat-value">{studentCount}</strong>
+      <span class="stat-label">Registered Students</span>
     </div>
     <div class="card stat-card">
-      <span class="stat-label">Department Assistants</span>
       <strong class="stat-value">{assistantCount}/2</strong>
+      <span class="stat-label">Department Assistants</span>
     </div>
   </div>
 
@@ -913,20 +913,27 @@
 
   .stat-card {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 1.5rem 2rem;
-    background: var(--primary-50);
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1.5rem;
+    background: var(--bg-main);
   }
 
   .stat-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     color: var(--text-muted);
-    font-size: 0.875rem;
   }
 
   .stat-value {
-    font-size: 1.9rem;
-    color: var(--primary);
+    font-family: var(--font-heading);
+    font-size: 2.4rem;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--text-main);
+    line-height: 1;
   }
 
   .search-box {
@@ -1003,8 +1010,11 @@
   }
 
   .card-title {
+    font-family: var(--font-heading);
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text-main);
   }
   .danger-title { color: var(--text-main); }
   .success-title { color: var(--text-main); }
@@ -1035,7 +1045,7 @@
   tr:hover td { background: var(--bg-alt); }
 
   .search-results { margin-bottom: 1.5rem; }
-  .search-results h3 { font-size: 0.9375rem; font-weight: 600; margin-bottom: 0.75rem; }
+  .search-results h3 { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 0.75rem; }
 
   .empty-state { color: var(--text-muted); font-size: 0.875rem; text-align: center; padding: 2rem; }
 
@@ -1049,7 +1059,7 @@
     border-radius: var(--radius-lg);
   }
   .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
-  .modal-header h2 { font-size: 1.25rem; font-weight: 600; }
+  .modal-header h2 { font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
   .close-btn { background: none; font-size: 1.25rem; color: var(--text-muted); }
   .close-btn:hover { color: var(--text-secondary); }
   .modal-desc { color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.25rem; }
@@ -1301,13 +1311,14 @@
   }
 
   .eyebrow {
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    letter-spacing: 1px;
-    margin-bottom: 0.25rem;
     display: block;
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--primary);
+    opacity: 0.7;
+    letter-spacing: 0.14em;
+    margin-bottom: 0.25rem;
   }
 
   @media (max-width: 900px) {

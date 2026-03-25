@@ -272,22 +272,55 @@
   }
 
   .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    position: relative;
+    overflow: hidden;
+    padding: 2rem 2.5rem;
+    background: var(--bg-main);
+    border: 1px solid var(--border-light);
+    border-radius: var(--radius);
   }
+  /* Dot-grid — mirrors landing page hero pattern */
+  .page-header::before {
+    content: '';
+    position: absolute;
+    inset: -10% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+  .page-header::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--bg-main) 50%, transparent 100%);
+    pointer-events: none;
+  }
+  .page-header > * { position: relative; z-index: 1; }
 
   .eyebrow {
-    font-size: 0.75rem;
+    display: block;
+    font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.14em;
     color: var(--primary);
-    margin-bottom: 0.25rem;
+    opacity: 0.7;
+    margin-bottom: 0.4rem;
+  }
+
+  .page-header h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text-main);
+    margin-bottom: 0.3rem;
   }
 
   .page-desc {
     color: var(--text-secondary);
+    font-size: 0.875rem;
     margin-top: 0.25rem;
   }
 
@@ -377,7 +410,10 @@
   }
 
   .report-title {
+    font-family: var(--font-heading);
     font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text-main);
   }
 

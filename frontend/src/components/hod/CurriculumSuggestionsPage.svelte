@@ -237,22 +237,51 @@
 
 <style>
   .hero-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: 1rem;
-    padding: 2rem;
-    background:
-      radial-gradient(circle at top right, rgba(79, 124, 219, 0.1), transparent 28%),
-      linear-gradient(135deg, var(--bg-main), var(--primary-50));
+    gap: 1.5rem;
+    padding: 2rem 2.5rem;
+    background: var(--bg-main);
   }
+  /* Dot-grid — mirrors landing page hero pattern */
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    inset: -10% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--bg-main) 40%, transparent 85%);
+    pointer-events: none;
+  }
+  .hero-card > * { position: relative; z-index: 1; }
+
   .eyebrow {
-    font-size: 0.75rem;
+    display: block;
+    font-size: 0.68rem;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
-    font-weight: 700;
+    letter-spacing: 0.14em;
+    font-weight: 600;
     color: var(--primary);
-    margin-bottom: 0.45rem;
+    opacity: 0.7;
+    margin-bottom: 0.5rem;
+  }
+  h2 {
+    font-family: var(--font-heading);
+    font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    color: var(--text-main);
+    margin-bottom: 0.5rem;
   }
   .window-copy,
   .assistant-note,

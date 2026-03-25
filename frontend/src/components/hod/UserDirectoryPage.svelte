@@ -304,51 +304,84 @@
   }
 
   .hero-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 1.5rem;
-    padding: 2rem;
-    background:
-      radial-gradient(circle at top right, rgba(79, 124, 219, 0.12), transparent 28%),
-      linear-gradient(135deg, var(--bg-main), var(--primary-50));
+    padding: 2rem 2.5rem;
+    background: var(--bg-main);
   }
+  /* Dot-grid — mirrors landing page hero pattern */
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    inset: -10% 0;
+    background-image: radial-gradient(circle, var(--border-light) 1.2px, transparent 1.2px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to right, var(--bg-main) 40%, transparent 85%);
+    pointer-events: none;
+  }
+  .hero-card > * { position: relative; z-index: 1; }
 
   .eyebrow {
-    margin-bottom: 0.65rem;
-    font-size: 0.75rem;
-    font-weight: 700;
-    letter-spacing: 0.08em;
+    display: block;
+    margin-bottom: 0.6rem;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
     text-transform: uppercase;
     color: var(--primary);
+    opacity: 0.7;
   }
 
   h2 {
     margin-bottom: 0.5rem;
-    font-size: 1.8rem;
+    font-family: var(--font-heading);
+    font-size: clamp(1.4rem, 3vw, 2rem);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
     color: var(--text-main);
   }
 
   .hero-copy {
     max-width: 44rem;
     color: var(--text-secondary);
+    font-size: 0.875rem;
+    line-height: 1.6;
   }
 
   .hero-meta {
     min-width: 120px;
     text-align: right;
+    flex-shrink: 0;
   }
 
   .hero-count {
     display: block;
-    font-size: 2rem;
+    font-family: var(--font-heading);
+    font-size: 3rem;
     font-weight: 700;
-    color: var(--primary);
+    letter-spacing: -0.04em;
+    color: var(--text-main);
+    line-height: 1;
   }
 
   .hero-label {
+    display: block;
     color: var(--text-muted);
-    font-size: 0.875rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
   }
 
   .directory-card {
@@ -464,6 +497,9 @@
   }
 
   h3, h4 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
     color: var(--text-main);
   }
 
