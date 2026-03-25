@@ -198,7 +198,7 @@
 
 <div class="landing">
 
-  <nav class="top-nav">
+  <nav class="top-nav" class:nav--alt={sProg > 0 && sProg < 1}>
     <div class="nav-inner">
       <a href="/" class="nav-brand" aria-label="UniConnect home">
         <img src="/logo.jpg" alt="UniConnect" class="nav-logo" />
@@ -481,6 +481,10 @@
     background: var(--bg-main);
     position: sticky; top: 0; z-index: 50;
     width: 100%; height: 56px;
+    transition: background 0.3s ease;
+  }
+  .top-nav.nav--alt {
+    background: var(--bg-alt, var(--bg-main));
   }
   .nav-inner {
     display: flex; justify-content: space-between; align-items: center;
