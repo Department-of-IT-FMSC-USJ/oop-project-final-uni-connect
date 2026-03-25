@@ -479,7 +479,6 @@
   .top-nav {
     display: flex; align-items: center;
     background: var(--bg-main);
-    border-bottom: 1px solid var(--border-light);
     position: sticky; top: 0; z-index: 50;
     width: 100%; height: 56px;
   }
@@ -587,7 +586,8 @@
     position: sticky;
     top: 56px;
     height: calc(100vh - 56px);
-    display: flex; align-items: center; justify-content: center;
+    display: flex; align-items: flex-start; justify-content: center;
+    padding-top: 2.5rem;
     background: var(--bg-main);
     overflow: hidden;
   }
